@@ -1,0 +1,37 @@
+%% A simple Z specification that uses free types.
+
+\begin{zed} lo == 1; hi == 10 \end{zed}
+
+\begin{zed} 
+  small == lo \upto hi \\
+  Colour ::= Red | Green | Blue \\
+  colours == \power Colour \setminus \{ \{\} \}   %% ie. \power_1
+\end{zed}
+
+\begin{schema}{State}
+  x,y : small \\
+  z : Colour
+\where
+  x=y
+\end{schema}
+
+\begin{schema}{Init}
+  State
+\where
+  x = 1 \\
+  z = Red
+\end{schema}
+
+\begin{schema}{Op1}
+  \Delta State \\
+  z? : \{ 10,12 \}
+\where
+  x' + y' = z?
+\end{schema}
+
+\begin{schema}{Test}
+  s: State
+\where
+  s.z = 200
+\end{schema}
+

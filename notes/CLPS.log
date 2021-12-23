@@ -1,0 +1,41 @@
+Time spent developing Z -> CLPS translator:
+
+Date		Hours	Task
+=============	=====	=================
+Mon 3/9/2001	5	Initial main program, derived from Animate.hs
+			and TextUI.hs, plus CLPS term writer.
+
+Wed 5/9/2001	4	Improved CLPS term writer a lot and added exceptions.
+
+Tue 11/9/2001	3	Added quantifiers, set-comp and all other toolkit
+			operators that are supported by both Z and CLPS-B
+			except the relation/function spaces.
+
+Mon 17/9/2001	4	Added type inference for Z expressions, so can 
+			generate the correct = operator.
+			Changed literal sets to use union-of-singletons
+			(because CLPS-B assumes no duplicates).
+
+Thu 27/9/2001	1	Added output of function space constructors.
+			Translated long tuples to nested pairs.
+
+Thu 27/9/2001	3	Design of Z -> CLPS-BZ translator.
+
+Fri 28/9/2001	4	First part of BZTT .pl file generation.
+
+Mon 1/10/2001	6	First Prolog-readable bbook.pl file generated.
+	Many improvements required in CLPSType.hs (a type env is now
+	passed right through the CLPSWrite predicates).
+	This is really just an experimental prototype.
+
+
+Sat 15/6/2002	5	Started to change to BZP format.
+	Correct top-level facts generated, but more work needed
+	to get types and expressions into BZP syntax.
+
+Tue 18/6/2002	2	More correct BZP output with types.
+	Fixed most operators, added types to all/exists quantifiers,
+	added "b_" prefix to all names.
+
+Fri 28/6/2002	2	Wrote front end, Z2BZP.hs.
+	Sent this to rest of BZTT team for evaluation.

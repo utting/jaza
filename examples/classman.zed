@@ -1,0 +1,157 @@
+\documentclass[10pt]{article}
+
+% This is a simple Z specification of a class manager.
+% This file defines the local state of each class.
+% See classsys.zed for a promoted version which manages many classes.
+
+\usepackage{oz,ztc}
+\zedcompatible
+
+\begin{document}
+
+\begin{zed}
+[Student] \\
+size == 6
+\end{zed}
+
+%% JAZA: Cannot handle this, so I changed to size==6 (above).
+%\begin{axdef}
+%size: \nat
+%\where
+%size = 6
+%\end{axdef}
+
+\begin{syntax}
+Response & ::= & success \\
+	 & |   & notenrolled \\
+	 & |   & nocert \\
+	 & |   & cert \\
+	 & |   & alreadyenrolled \\
+	 & |   & alreadytested \\
+	 & |   & noroom
+\end{syntax}
+
+%% state-schema Class
+
+\begin{schema}{Class}
+	enrolled, tested: \power Student  
+\where
+	\# enrolled \leq size \\
+	tested \subseteq enrolled
+\end{schema}
+
+%% init-schema ClassInit
+
+%% JAZA: INCORRECT: should be \emptyset, not \empty
+\begin{schema}{ClassInit}
+	Class'
+\where
+	enrolled' = \emptyset \\
+	tested' = \emptyset 
+\end{schema}
+
+% \begin{comment}
+% \begin{zed}
+% ClassInit \defs [ Class' | enrolled' = \emptyset ]
+% \end{zed}
+% \end{comment}
+
+\begin{schema}{Enrolok}
+	\Delta Class \\
+	s?: Student \\
+	r!: Response 
+\where
+	s? \notin enrolled \\
+	\# enrolled < size \\
+	enrolled' = enrolled \cup \{ s? \} \\
+	tested' = tested \\
+	r! = success 
+\end{schema}
+
+\begin{schema}{Testok}
+	\Delta Class \\
+	s?: Student \\
+	r!: Response 
+\where
+	s? \in enrolled \\
+	s? \notin tested \\
+	tested' = tested \cup \{ s? \} \\
+	enrolled' = enrolled \\
+	r! = success 
+\end{schema}
+
+\begin{schema}{Leaveok}
+	\Delta Class \\
+	s?: Student \\
+	r!: Response 
+\where
+	s? \in enrolled \\
+	enrolled' = enrolled \setminus \{ s? \} \\
+	((s? \in tested \land tested' = tested \setminus \{ s? \} \land
+		r! = cert ) \\
+\t1	\lor (s? \notin tested \land tested' = tested \land
+		r! = cert )) 
+\end{schema}
+
+%% operation Enquire
+
+\begin{schema}{Enquire}
+	\Xi Class \\
+	s?: Student \\
+	r!: Response 
+\where
+	((s? \notin enrolled \land r! = notenrolled ) \\
+\t1	\lor (s? \in enrolled \setminus tested \land r! = alreadyenrolled) \\
+\t1	\lor (s? \in tested \land r! = alreadytested ) )
+\end{schema}
+
+
+\begin{schema}{AlreadyEnrolled} 
+	\Xi Class \\
+	s?: Student \\
+	r!: Response 
+\where
+	s? \in enrolled \\
+	r! = alreadyenrolled 
+\end{schema}
+
+\begin{schema}{NoRoom} 
+	\Xi Class \\
+	s?: Student \\
+	r!: Response 
+\where
+	\# enrolled = size \\
+	r! = noroom 
+\end{schema}
+
+
+\begin{schema}{AlreadyTested} 
+	\Xi Class \\
+	s?: Student \\
+	r!: Response 
+\where
+	s? \in tested \\
+	r! = alreadytested 
+\end{schema}
+
+\begin{schema}{NotEnrolled} 
+	\Xi Class \\
+	s?: Student \\
+	r!: Response 
+\where
+	s? \notin enrolled \\
+	r! = notenrolled 
+\end{schema}
+
+%% operation Enrol
+%% operation Test
+%% operation Leave
+
+\begin{zed}
+Enrol \defs Enrolok \lor NoRoom \lor AlreadyEnrolled \also
+Test \defs Testok \lor NotEnrolled \lor AlreadyTested \also
+Leave \defs Leaveok \lor NotEnrolled 
+\end{zed}
+
+
+\end{document}

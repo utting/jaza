@@ -1,0 +1,112 @@
+This was a bug in Jaza 1.0, reported by Steve King, 5 April 2005.
+
+He said: I've downloaded and installed the binary version 1.0 of Jaza
+for Win XP. Previously, Jim W had downloaded a version which required
+HUGS. He ran some animations on his installation, asking it to
+evaluate a set. When I run the same on mine, I get different results:
+he had some values, I get the empty set. I suspected running out of
+setsize or searchsize, but changing these has no effect. The
+documentation suggests that after altering these within Jaza, one
+should alter heapsize inside HUGS: how is that done when using the
+binary version?
+
+For info, example file attached, expression which fails is 'eval TT'
+
+\begin{zed}
+  Bool == \{ 0, 1 \}
+  \\ %
+  F == \{ (1,1,1), (1,0,1), (0,1,1) \}
+  \\ %
+  flip == \{~ b: Bool @ b \mapsto (~ \IF b=1 \THEN 0 \ELSE 1 ~) ~\}
+  \\ %
+  IS_1 == \{~ x,y,z: Bool | (x,y,z) \in F \iff (flip(x),y,z)
+  \notin F ~\}
+  \\ %
+  IS_2 == \{~ x,y,z: Bool | (x,y,z) \in F \iff (x,flip(y),z)
+  \notin F ~\}
+  \\ %
+  IS_3 == \{~ x,y,z: Bool | (x,y,z) \in F \iff (x,y,flip(z))
+  \notin F ~\}
+  \\ %
+  \eta_1 == \{~ x,y,z: Bool @ (x,y,z) \mapsto (flip(x),y,z) ~\}
+  \\ %
+  \eta_2 == \{~ x,y,z: Bool @ (x,y,z) \mapsto (x,flip(y),z) ~\}
+  \\ %
+  \eta_3 == \{~ x,y,z: Bool @ (x,y,z) \mapsto (x,y,flip(z)) ~\}
+  \\ %
+  \Psi_1 == IS_1 \dres \eta_1 \rres IS_1
+  \\ %
+  \Psi_2 == IS_2 \dres \eta_2 \rres IS_2
+  \\ %
+  \Psi_3 == IS_3 \dres \eta_3 \rres IS_3
+\end{zed}
+
+
+Evaluate PS1 explicitly
+\begin{zed}
+  BBB == Bool \cross Bool \cross Bool \\
+  PS1 == \{((0, 0, 1), (1, 0, 1)), ((1, 0, 1), (0, 0, 1))\} \\
+  PS2 == \{((0, 0, 1), (0, 1, 1)), ((0, 1, 1), (0, 0, 1))\} \\
+  PS3 == \{((0, 1, 0), (0, 1, 1)), 
+           ((0, 1, 1), (0, 1, 0)), 
+           ((1, 0, 0), (1, 0, 1)),
+           ((1, 0, 1), (1, 0, 0)),
+           ((1, 1, 0), (1, 1, 1)),
+           ((1, 1, 1), (1, 1, 0)) \}
+\end{zed}
+
+Experiment with Jaza evaluations:
+
+
+  eval BBB
+
+  evalp \exists t_1, t_2:BBB @ ( t_1, t_2 ) \in PS1
+
+  eval \bigcap  \{\{(0, 0, 1), (1, 0, 1)\},  \power (\{0, 1\} \cross \{0, 1\} \cross \{0, 1\})\}
+
+\begin{zed}
+  TT == 
+  \\ %
+  \t1 %
+  \{ T: \power ( Bool \cross Bool \cross Bool ) |
+  \\ %
+  \t2 %
+  \# T = 4 \land
+  \\ %
+  \t2 %
+  (~ \exists t_1, t_2: T @ ( t_1, t_2 ) \in \Psi_1 ~) \land
+  \\ %
+  \t2 %
+  (~ \exists t_3, t_4: T @ ( t_3, t_4 ) \in \Psi_2 ~)
+\}
+\end{zed}
+ \land 
+  \\ %
+  \t2 %
+  (~ \exists t_5, t_6: T @ ( t_5, t_6 ) \in \Psi_3 ~) ~\}
+\end{zed}
+
+
+\begin{zed}
+  TT2 == 
+  \\ %
+  \t1 %
+  \{ T: \power ( Bool \cross Bool \cross Bool ) |
+  \\ %
+  \t2 %
+  \# T = 4 \land
+  \\ %
+  \t2 %
+  (~ \exists t_1, t_2: T @ ( t_1, t_2 ) \in PS1 ~) \land
+  \\ %
+  \t2 %
+  (~ \exists t_3, t_4: T @ ( t_3, t_4 ) \in PS2 ~)
+\}
+\end{zed}
+
+
+Conclusion: this is a scoping problem, probably introduced during
+the recent optimisations of flattening nested exists.
+
+A workaround is to use distinct bound variables within the 
+multiple nested exists.

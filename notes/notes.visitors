@@ -1,0 +1,93 @@
+Goal: Using the OO Visitor Design Pattern will allow all the 
+      term-traversals in Jaza to be: 
+	- written with less code;
+	- more systematic (therefore readable);
+	- maintained more easily (when cases change)
+
+Nov 2001: Defined a Visitor class in AST.hs.
+
+Instance	Original LOC	Visitor LOC  (measured with hslines)
+============	=============	============
+		LOC,Words,Chars	LOC,Words,Chars
+unfold		good potential, ErrorOr, diff-env
+uniquify	ideal (but short already), but diff scope rules
+substitute	ideal (but short already), but requires Subs arg.
+optimisation 	113,738,4630	75,404,2419
+Eval		reasonable, though many cases are custom, ErrorOr
+freevars	diff-result-type.
+SetSize		diff-result-type, expr-only.
+CLPSWrite	diff-result-type, every term is custom, ErrorOr
+CLPSType	diff-result-type, expr-only, every term is custom
+Formatter	diff-result-type, every term is custom
+=========
+10 passes
+
+Min lines to define a visitor?  About 12
+
+Note:  31 expr cases, 15 pred cases, 6 misc, 4 ZGenFilt = 56 cases
+	(plus 8 schema cases, but most traversals do not see those)
+
+
+A simple traversal through the terms is easy.
+
+But:
+
+Challenge 0. some visitors return raw term, others return ErrorOr term
+	Others return a fixed type (eg. freevars returns VarSet).
+	
+Challenge 1. sometimes we want to know the context
+	(eg. expand exists is not valid within exists1).
+	Soln: must override the method one level higher (to see context).
+
+Challenge 2. sometimes changes to the [ZGenFilt] require changes
+	to the terms within its scope (ZExpr/ZSExpr/ZPred/none).
+
+	Usually this is a substitution?
+	Soln 1: return the subs in the monad.
+	Soln 2: return the subs as an extra argument of visitGenFilts
+		=> requires multi-parameter type classes (-98)
+	Soln 3: pass the subterm to the visitGenFilts method and return it.
+
+	NOTE: THIS AFFECTS THE VISITOR CLASS/INTERFACE!
+	(Most other challenges affect only the default methods).
+
+Challenge 3. most traversals must preserve the uniquify-vars invariant.
+	This requires knowing all the bound variables that we are inside
+	   ==> environment stores these.
+
+	Soln 1: current approach -- each pass preserves it.
+		=> transforms which MAY break it must traverse subterms
+		to ensure it is reestablished.
+	  Note: Rearranging does not break the uniquify-vars invariant.
+		Flattening/lifting a binder up one level does not break it
+		  (and does not require renaming first), except that the
+	          terms to the right of the lifted binder are now within
+		  the scope of MORE names, so must re-uniquify.
+
+	Soln 2: next pass restablishes it prior to other processing?
+		In fact, if the pass processes subterms AFTER [ZGenFilt],
+		then it will reestablish it immediately.	
+
+		Advantage: the `reestablish' pass is amortised into
+		another pass, and upon entering each [ZGenFilt], we
+		know exactly whether or not we NEED to rename.
+
+	Soln 3: use integers for ZVars and allocate fresh integers
+		everywhere within the term (a stronger invariant:
+		all bound variables are distinct).  Like CadiZ. 
+		With this stronger invariant, any rearranging is sound
+		(and does not break the invariant).
+
+	==> Use Soln 1.
+
+Challenge 4. sometimes we want to reorder or expand/delete ZGenFilt
+	Soln 1: must define the [ZGenFilt] method, not just a
+		ZGenFilt method.
+	Soln 2: (for expand/delete only) a default [ZGenFilt] method 
+		could do a concatMap.
+
+Challenge 5: can we do the `return original term if no changes' trick?
+
+Challenge 6: will this visitor class be useful for unfolding, or
+	only AFTER the unfold stage, or AFTER uniquify-vars is established?
+

@@ -1,0 +1,161 @@
+\documentclass[10pt]{article}
+
+\usepackage{oz,ztc}
+\zedcompatible
+
+\begin{document}
+
+This is a simple Z specification of a class management system.
+It promotes the class manager defined in classman.zed, to
+allow many classes of students to be managed.
+
+To use this in Jaza, you must load classman.zed, then this file.
+
+
+\begin{zed}
+    [ClassName]
+\end{zed}
+
+\begin{syntax}
+    CSResponse ::= classadded \\\t2
+		|  classdeleted \\\t2
+		|  classfound \\\t2
+		|  unknownclass \\\t2
+		|  classalreadyexists \\\t2
+		|  nosuchclass
+\end{syntax}
+
+%% JAZA cannot handle this:
+%\begin{axdef}
+%    maxclasses : \nat
+%\where
+%    maxclasses = 4
+%\end{axdef}
+\begin{zed}
+    maxclasses == 4
+\end{zed}
+
+%% state-schema ClassSystem
+
+\begin{schema}{ClassSystem}
+    classmap : ClassName \pfun Class
+\where
+    \# classmap \leq maxclasses 
+\end{schema}
+
+%% init-schema InitClassSystem
+
+\begin{schema}{InitClassSystem}
+        ClassSystem' 
+\where
+        classmap' = \emptyset
+\end{schema}
+
+\begin{schema}{MakeClassok}
+    \Delta ClassSystem \\
+    ClassInit \\
+    cname? : ClassName \\
+    csr! : CSResponse \\
+\where
+    cname? \notin \dom classmap \\
+    classmap' = classmap \cup \{cname? \mapsto \theta Class'\} \\
+    csr! = classadded 
+\end{schema}
+
+\begin{schema}{MakeClassfail}
+    \Xi ClassSystem \\
+    ClassInit \\
+    cname? : ClassName \\
+    csr! : CSResponse \\
+\where
+    cname? \in \dom classmap \\
+    csr! = classalreadyexists 
+\end{schema}
+
+%% operation MakeClass
+
+\begin{zed}
+    MakeClass \defs MakeClassok \lor MakeClassfail
+\end{zed}
+
+\begin{schema}{DropClassok}
+    \Delta ClassSystem \\
+    cname? : ClassName \\
+    csr! : CSResponse \\
+\where
+    cname? \in \dom classmap \\
+    (classmap~cname?).enrolled = \emptyset \\
+    classmap' = \{cname?\} \ndres classmap \\
+    csr! = classdeleted 
+\end{schema}
+
+\begin{schema}{DropClassfail}
+    \Xi ClassSystem \\
+    cname? : ClassName \\
+    csr! : CSResponse \\
+\where
+    cname? \notin \dom classmap \\
+    csr! = nosuchclass 
+\end{schema}
+
+%% operation DropClass
+
+\begin{zed}
+    DropClass \defs DropClassok \lor DropClassfail
+\end{zed}
+
+
+\begin{schema}{ClassToSystem}
+    \Delta ClassSystem \\
+    \Delta Class \\
+    cname? : ClassName \\
+    csr! : CSResponse \\
+\where
+    cname? \in \dom classmap \\
+    classmap~cname? = \theta Class \\
+    classmap' = classmap \oplus \{cname? \mapsto \theta Class'\} \\
+    csr! = classfound
+\end{schema}
+
+\begin{schema}{UnknownClass}
+    \Xi ClassSystem \\
+    cname? : ClassName \\
+    csr! : CSResponse \\
+\where
+    cname? \notin \dom classmap \\
+    csr! =  unknownclass 
+\end{schema}
+
+%% operation CSEnrol
+
+\begin{zed}
+    CSEnrol \defs ((Enrol \land ClassToSystem)  \\\t3
+			\hide (enrolled, tested, enrolled', tested')) \\\t3
+			\lor UnknownClass
+\end{zed}
+
+%% operation CSTest
+
+\begin{zed}
+    CSTest \defs ((Test \land ClassToSystem ) \\\t3 
+			\hide (enrolled, tested, enrolled', tested')) \\\t3
+			\lor UnknownClass
+\end{zed}
+
+%% operation CSLeave
+
+\begin{zed}
+    CSLeave \defs ((Leave \land ClassToSystem ) \\\t3 
+			\hide (enrolled, tested, enrolled', tested')) \\\t3
+			\lor UnknownClass
+\end{zed}
+
+%% operation CSEnquire
+
+\begin{zed}
+    CSEnquire \defs ((Enquire \land ClassToSystem ) \\\t3 
+			\hide (enrolled, tested, enrolled', tested')) \\\t3
+			\lor UnknownClass
+\end{zed}
+
+\end{document}

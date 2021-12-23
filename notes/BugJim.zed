@@ -1,0 +1,76 @@
+\documentclass{article}
+
+Problem reported by Jim Woodcock, 10 June 2005.
+
+\begin{document}
+
+\begin{zed}
+  maxval == 3
+\end{zed}
+
+\begin{zed}
+  Value == 1 \upto maxval
+\end{zed}
+
+\begin{zed}
+  n == 3
+\end{zed}
+
+\begin{zed}
+  Index == 1 \upto n
+\end{zed}
+
+\begin{zed}
+  Purse_0 == \{~ p: \seq Value | \# p \leq 3 ~\}
+\end{zed}
+
+Jaza does not have any rules for enumerating \seq
+(because in general they give infinite sets because there
+is no maximum length), so we expand it out by hand.   (Horrible!)
+\begin{zed}
+  Purse == \{ \langle \rangle \} \cup
+           \{v1:Value @ \langle v1 \rangle \} \cup
+           \{v1,v2:Value @ \langle v1,v2 \rangle \} \cup
+           \{v1,v2,v3:Value @ \langle v1,v2,v3 \rangle \}
+\end{zed}
+
+\begin{zed}
+  update == \{~ p: Purse; i: Index; n: Value @ (p,i,n) \mapsto p
+  \oplus \{ i \mapsto n \} ~\}
+\end{zed}
+
+\begin{zed}
+  sum == ( \mu f: Purse \fun Value | ( \forall p: Purse @ f(p) =
+  head(p) + f(tail(p)) ) )
+\end{zed}
+
+Similarly, Jaza does not have any rules for enumerating \fun,
+so we cannot define a recursive function as above.
+The closest we can get is probably to unfold the recursion
+a fixed number of times, like this:
+
+\begin{zed}
+  sum0 == (\lambda p:Purse @ 0) \\
+  sum1 == (\lambda p:Purse @ \IF p=\{\} \THEN 0 \ELSE head(p)+sum0(tail(p)))\\
+  sum2 == (\lambda p:Purse @ \IF p=\{\} \THEN 0 \ELSE head(p)+sum1(tail(p)))\\
+  sum3 == (\lambda p:Purse @ \IF p=\{\} \THEN 0 \ELSE head(p)+sum2(tail(p)))
+\end{zed}
+
+\begin{zed}
+  p1 == \langle 1, 2, 3 \rangle
+\end{zed}
+
+\begin{schema}{Test}
+  p: Purse \\ %
+  v: Value
+  \where %
+  v = sum3(p)
+\end{schema}
+
+
+Now \verb!do Test[p:=p1]! gives `No Solutions' as expected
+(because 1+2+3=6 which is outside the range of Value).
+
+And \verb!eval sum3 \langle 1,3,2 \rangle! returns 6 as you would hope.
+
+\end{document}

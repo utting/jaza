@@ -1,0 +1,733 @@
+Time spent developing Jaza:
+
+(This excludes time spent developing the parser combinators,
+ and time spent writing user documentation).
+
+
+Date		Hours	Task
+=============	=====	=================
+Wed 28/4/1999	2	Rough Design
+
+Thu 29/4/1999	2	(5:30am-7:30am)
+			First impl of evalexpr and sets/tuples/ints
+			(Speed with Hugs on Pentium 166 MMX: 
+			  about 4 seconds to print:
+                          set1 = {x:1..100;y:1..100 | x=3 @ x}
+                          Search space of 10,000 values)
+
+Thu 29/4/1999	5	First impl of exception handling and evalpred
+			(without forall and exists)
+
+Sat 1/5/1999	3	Design of modules, implicit sets and schema ops
+
+Mon 3/5/1999	6	Tidied up exception handling.
+			Implemented ZForall and ZExists.
+			(GHC speed to print set1: about 0.6 seconds)
+
+Tue 4/5/1999    1       [Est 2hrs] Changed finite sets from unsorted lists 
+			to my Haskell Z library (sets as sorted lists).
+                2       Tried to get ghc separate compilation working
+
+Wed 5/5/1999    1.5	[Est 3hrs] Split into modules and put under RCS.
+Wed 5/5/1999	0.3	Moved Undef out of ZValue, into ErrorOr. 
+Wed 5/5/1999	0.3     Changed zand/zor to be non-strict.  [Est 1hr]
+
+Thu 6/5/1999	3	[Est 2hrs] Implemented lots of tests in Eval_Test.hs.
+
+			Error: Found a bug in applyfunc (it was not testing
+				its argument at all!)
+
+			Error: Also found a problem with forall/exists 
+				stopping at the first Undef value.  
+				Changed this to be slightly more eager, 
+				but still return serious errors immediately.  
+
+			Realised that separating results from expressions
+			prevents 'partial evaluation' of exprs/preds.
+			Eg. This means (exists x:1..100 @ x in S) may
+                        evaluate S 100 times, even if it does not depend
+			upon x.  This could be a major efficiency problem?
+			Can be partly fixed by static analysis/rearrangement:
+			  (let s0=S in (exists x:1..100 @ x in s0))
+
+Thu 6/5/1999	1	First implementation of builtin functions.
+Thu 6/5/1999	2.5	More builtin functions.
+			Added a second representation of sets:
+			   IntSet [lo] [hi],  plus coercion functions.
+			   Realised that having multiple set reps
+			   (and coercions between them when necessary)
+			   could be quite a powerful strategy.
+
+Fri 7/5/1999	0.5	Aborted attempt to change FiniteSets.lhs to
+			work on ZValues.
+	
+Tue 11/5/1999	3	Changed FiniteSets.lhs to work on ZValues
+			and use ZValue pairs.
+			Added (Pair _ _) constructor to ZValue to make
+			this a bit nicer.
+			Moved ZValue type out of Eval.hs into Values.hs
+			Implemented a few more builtin functions
+			(ran, dom, power, power1, sizeof)
+
+			Error: Could not compile until added some
+				casts to Float (for 2**#s).
+			Error: ZTuple [a,b] was evaluated to Tuple...
+				instead of (Pair _ _).  I noticed this
+				when some tests failed.
+			Error: power1 test failed, because I was doing
+				powerset s `diff` set [], rather than
+				powerset s `diff` set [FSet (set [])]
+
+			[Est 6 hrs for builtin functions]  Actual: 7 hrs.
+
+Wed 12/5/1999	0.5	Added ASTs for schema expressions.
+Wed 12/5/1999	0.5	Implemented a simple evalschema.
+			However, it needs to be made more lazy, so that
+			the first binding can be returned even if later
+			bindings give errors.  This will impact 
+			gen_and_filter.
+			
+[A break of several weeks investigating Z grammars and parsers,
+ and then implementing improved parser combinators which allow
+ cuts, and return error messages]
+
+Mon 7/6/1999    4       Implemented Lexical scanner for Z. (Untested)
+
+Tue 8/6/1999    5       Implemented tests for Lexical scanner.
+                        Error: cut/paste errors meant several L_CLOSE<A>
+				tokens were wrongly spelt as L_OPEN<A>.
+			Wrote Z parser for given sets and schemas.
+
+Sat 12/6/1999	1	Tested the parsing of given sets and schemas.
+			Minor improvements and corrections.
+
+Wed 23/6/1999	1	Updated Eval.hs and its tests to use the
+			new (String,[ZDecor]) representation of variables.
+
+Thu 24/6/1999	1	Changed gen_and_filter to be more lazy.
+			It now returns [ErrorOr ZValue], not ErrorOr [ZValue].
+			This will be better for evaluating schemas.
+
+Thu 24/6/1999	5	Implemented the start of a simple Text UI.
+			It reads and stores Z paragraphs, evaluates
+			  expressions/predicates.  Still need to decide
+			  how [ZPara] gets turned into a usable environment
+			  for the eval functions.
+			  Error: paragraphs popped off spec in wrong order.
+				(noticed while using the interface).
+			  Solution: reverse them before push them on.
+			Also extended Eval so that some set operations
+			  coerce arguments to FSet values.
+			Changed evaluation of set comprehensions to
+			  allow missing '@ Expr' part.
+			  Error: a missing single variable generated a
+				tuple containing one value.  This was picked
+				up by the tests in Eval_Test.hs
+
+Sat 26/6/1999	3	Merged ZValue and ZExpr.  ZValue is now a subset
+			of ZExpr.  Added isCanonical to test for an even
+			tighter subset which is in a canonical form.
+
+Sat 26/6/1999	2	Started to implement unfolding of expressions.
+			In AST.hs, changed all schema references so that
+			they can be arbitrary schema expressions.
+			(This makes it easier to support unfolding).
+
+Sun 27/6/1999	2	More unfolding of expressions implemented.
+			A monad style would probably be much easier!
+
+Mon 28/6/1999	5	Most Expressions and Predicates now unfolding,
+			(using ErrorOr Monad!) plus simple schema inclusions.
+			Reorganised Animate.hs to unfold every definition
+			and predicate as it is added.  The "eval" and 
+			"evalp" commands also unfold before evaluating.
+
+Tue 29/6/1999	4	First schema animated!
+			
+			\begin{zed} s == 1 \upto 10 \end{zed}
+			\begin{schema}{State} x,y:s \where x=y \end{schema}
+
+			Added show, do and next commands to animator.
+			All expressions and predicates now unfold,
+			except for free types.  Simple schema references
+			and inclusions are unfolded, but not other schema
+			expressions.
+
+			Error: Lexer was handling % comments within Z
+				paragraphs incorrectly (was going back
+				into commentary mode).  Greg noticed this
+				while testing on real .zed files.
+
+Tue 29/6/1999	2	Cleaning up.  Removed deriving Read from most
+			data structures (partly to avoid a GHC bug).
+			Added some error messages to Typecheck error.
+			Unfold now unfolds ZTheta completely into ZBinding.
+			Eval now handles ZBinding, ZCross and ZSeqDisplay.
+
+Wed 30/6/1999	10	Fixed scopes of local variables in schema text.
+			(The scope covers the predicates, but not the 
+			types of the variables being declared.)
+			Implemented toolkit relations (>, <, \leq, \geq).
+			Added several missing sequence toolkit functions.
+			Unfold now checks that schema names are never reused.
+			Unfold now fills in missing (Maybe ZExpr) parts.
+			Eval.hs: Implemented lots more toolkit functions.
+				 (Sequences are kept in ZSeqDisplay form)
+				 Improved coercions and used them more.
+				 Env argument now passed down to all levels.
+				 Rewrote evalexpr in Monadic style.
+
+Thu 1/7/1999	1	First attempt at implementing Free Types.
+Fri 2/7/1999	5	Changed parser and internal data structures to
+			allow decorations in global definitions and let defs,
+			(but not schemas, as per the Z reference manual)
+			Moved formatting of parse errors out of the animator 
+			core, into TextUI.hs -- cleaner.
+			Implemented (non-recursive) Free Types and 
+			Lambda Functions with one argument, plus predicates.
+
+Fri 2/7/1999	6	Implemented free_vars and substitute functions
+			  (but substitute does not rename to avoid 
+			  variable capture yet).
+			Then schema decoration and decorated \theta's.
+			Implemented \Delta and \Xi automatic unfolding 
+			  (only when there is not one defined already).  
+			(Minor UI problem: 'show' command cannot display 
+			  Delta/Xi schemas)
+			The unfold process now flattens equalities between
+			  theta terms and the outer level of predicate
+			  conjuncts (preserving order).
+			System is now usable, for small search spaces 
+			  (it does no reordering or optimization of 
+			  equalities yet).
+
+Wed 7/7/1999	6	Changed representation of generic prefix/infix ops.
+			(Added ZPowerSet and ZFuncSet to AST.hs).
+			Implemented subset and membership tests for things
+			like {(5,10),(6,12)} \in {5,6} \finj \nat.  
+
+			Also, unfold now turns schemas-as-sets into 
+			set comprehensions.
+
+Sat 10/7/1999	2	Implemented renaming+assignment of schema fields.
+			Error: assignment gave (Check name type), instead
+			  of (Check value type).  Found easily during testing.
+			Error: forgot to unfold RHS of assignments.
+			  Happened to notice this during testing.
+
+Wed 14/7/1999	2.5	Finished implementing substitutions properly.
+			(It now renames to avoid capture).
+			Only tested on about 10 cases.
+			Error: forgot base case in rename_lhsvars
+			    (caused a program error during testing,
+			     when I exercised the renaming case for ZELet)
+
+Fri 16/7/1999	2.5	[Est 1hr] Wrote Optimize.hs to move equalities earlier.
+			Added 'Evaluate v e' into ZGenFilt, and into Eval.hs,
+			to support this.
+			Also, improved unfold so that schemas are fully
+			unfolded into predicates when they are used as 
+			predicates.
+
+Sat 17/7/1999	5	Implemented 'then schema' command, which uses the
+			 current state as input for schema.  After a lot more
+			 work, it even prompts for missing input/state vars.
+			Also changed output state representation so that the
+			 whole list of states is always kept, and next/prev
+			 commands move through the list.
+			Removed special ParseError/Ok data structure from
+			 Parse.hs and used general ErrorOr one instead.
+			 This is nicer to use in the monad style.
+			Improved the "unused tokens" error message, so it
+			 gives a correct line/column position.
+			Error: while rewriting replace_schema, noticed
+			   that S'[x' := 3] would probably not work, because
+			   the schema decoration was ignored during renaming.
+
+Tue 20/7/1999	1.5	Error: scope problems in optimized ZGenFilt lists.
+			 (Fixed by adding type to give: Evaluate v e t.
+			Also opt_gfs now optimizes all the expressions and
+			predicates within it!
+
+Wed 21/7/1999   0.5	Error: scope problems in evaluation of all [ZGenFilt].
+			(this had been there, unnoticed, from the beginning).
+			Fixed by evaluating all types in a more global 
+			environment that does not include any of the bound 
+			vars from the current ZGenFilt list.
+
+Wed 21/7/1999	3	Integrated Formatter (pretty-printer) into TextUI.
+			Made some changes to Formatter: ZFreeType exprs just
+			print the name; added Evaluate/3; exported functions
+			that format then render, plus some IO () versions;
+			added ability to prefix/indent each line with a string.
+
+Fri 23/7/1999	1.5	Implemented schema quantifiers, plus hiding.
+Mon 26/7/1999	1	Implemented remaining binary schema operators
+			(\implies, \iff, \semi and \pipe, but not \project).
+			Untested as yet.
+
+Wed 28/7/1999	2	Corrected errors exposed by classman.zed
+			Error: v \in \power T incorrectly required v non_empty.
+			 (serious error, because it returned False incorrectly)
+			Error: default case of zmember gives Undef.
+			    Should give a misc error.
+			Lexer: made 'syntax' environment the same as 'zed'.
+			    and it now ignores '&' (LaTeX alignment tabs).
+			Implemented given set values (strings), in lexer,
+			    parser, and formatter.  Since we ignore type
+			    checking, 'givenval in givenset' is always true!
+			Error: substitute did not handle ZPowerSet or ZFuncSet.
+			    (found while testing given set values).
+
+Thu 29/7/1999	2	Enhanced Optimize module so that predicates are 
+			evaluated early (at optimize time) if possible.
+			This handles common cases like (p => q), where p
+			depends only upon inputs, so can be evaluated early,
+			and q contains useful equalities for the optimizer
+			(which would not be usable without this optimization).
+
+			examples/classman.zed now works correctly.
+
+			While testing examples/classsys.zed, noticed these:
+			Error: eval \{ClassInit @ \theta Class'\}
+				gives 'not in scope: enrolled tested'
+			Error: eval \{ClassInit\} is not unfolding enough?
+
+			Added a 'load filename' command to TextUI/Animate.
+
+Wed 4/8/1999	0.3	Fixed above scope problem with theta.  
+			   (it was checking the domain of the binding,
+			   but should have been checking the range).
+
+Wed 4/8/1999	2	Error: Incorrect characteristic tuples were generated.
+			  (Schema references in the declaration list should 
+			   become bindings, but I was flattening them out
+			   to a list of individual declarations.)
+			   This was a misunderstanding about Z.
+			   It was a bit yucky to fix, because to determine the 
+			   char-tuple, you have to look at the source form
+			   of the declarations, not the unfolded [ZGenFilt]
+			   list, because that is already flattened.  This
+			   seems nasty.  But Z requires it.
+			Fixed two Z grammar ambiguities by adding
+			special cases in Unfold to detect them.
+			1. {S} can be a set display or a set comprehension.
+			   (this fixes the error noted on 29/7/1999).
+			2. S' can be a schema reference (which unfolds into
+			   a set of bindings) or a simple variable reference.
+
+Thu 5/8/1999	3	Implemented 'max_size' for guessing the max size of
+			a ZExpr that returns a set, then realized that it is
+			not really necessary -- simpler to just try evaluating
+			set, then catch any errors that arise.
+Thu 5/8/1999	3	Extended Eval so that large ZSetComp are returned
+			unevaluated, then the membership test tries to use
+			the supposed member to reduce the search space.
+			This works well---allows the classsys.zed spec to run.
+			Added the 'max search space' feature to support this.
+			Also, moved the opt_gfs2 function from Optimize module
+			into a new Reorder module to avoid recursive modules.
+
+Fri 6/8/1999	3	Changed Parse.hs to allow nls around any comma.
+			(examples/grades.zed uses them in rename lists).
+			Error: compose_schema reader was not unfolding expr.
+			   Noticed while testing grades.zed.
+			Error: optimize sometimes calls free_vars on exprs
+			   that have been optimized, but free_vars did not
+			   handle optimized (Evaluate _ _ _) terms.
+			   (This triggered an error check in free_vars).
+			   It is handy to be able to use free_vars and 
+			   substitute on ANY term, so I extended Subs.hs
+			   to handle Evaluate/3 and all other missing cases
+			   that can appear in optimized terms.
+			Eval.hs: added a new coercion: ZCross -> ZFSet.
+			   Also, function evaluation now tries to coerce the
+			   function into a ZFSet if all else fails.
+			Replaced calls to constuctor ZTuple by mkTuple, so
+			that 'ZPair' values get created instead sometimes.
+			   (this is one of the internal invariants, see AST.hs)
+
+Mon 9/8/1999	2	Implemented one-point rule.  This improves the result
+			of schema exists/hide expressions.
+			Changed free_vars so x is not always free in 'e.x'.
+			   (Need to check this.  Spivey 2nd Ed is not clear).
+
+Wed 11/8/1999	2	Extended Optimize to deduce extra equalities from
+			    equations where one side is a tuple or binding.
+			Implemented relational override (\oplus).
+			Now the examples/grades.zed spec animates.
+			Error: schema quantifiers were not expanding the
+			    bound schema text.  Now they do.
+			    This generated a genfilt_name assertion while
+			    testing the grades.zed specification.
+
+Wed 11/8/1999	1	Implemented a one-level undo for schema operations.
+			 (change a constant to change the number of levels).
+
+Mon 16/8/1999	2	Error: formatter had \star and \plus reversed.
+			   Noticed this while trying examples/Graph.zed
+			Changed Lexer, Unfold and Formatter so that \plus is
+			always used (instead of \closure) for the transitive
+			closure, and \star for the reflexive transclosure.
+			(But AST still has ZClosure, to avoid clashing with 
+			 ZPlus, which is used in '3 + 4').
+			Changed some Undef error to MiscError (with messages).
+			Relaxed isDefined definition for tuples.  
+			Realised that sometimes we need to (deeply) coerce
+			into canonical form before testing equality/membership.
+
+Thu 19/8/1999	0	Made release 0.5 (tag release-0-5) for 424 students.
+
+Thu 19/8/1999	3	Error: s \in \seq ... always failed, because domset
+			   was not set correctly in Unfold.hs.
+			   Noticed this while preparing 424 assignment.
+			Error: (2,4) \in <1,4> gives an error (should be True)
+			   Noticed while testing above fix.
+			   Changed zmember to call coerceZFSet (this should
+			   have been done from the beginning).
+			Error: \power_1 included emptyset, \power did not!
+			   (The is_non_empty test was reversed).
+			Error: onto check (in function memberships) could
+			   have gone into infinite loop.
+			   Noticed and corrected this while inspecting code.
+			Improved 'zequal' to handle more data types.
+			   (See MAJOR EVALUATION ISSUE #2 below).
+			Defined 'sequence_and' monadic combinator for 'and'ing
+			   [ErrorOr Bool] lists.  This simplified code nicely.
+			Extended 'znon_empty' (Eval.hs) and added 'zfiniteset'
+			   to check for obviously finite sets.
+
+Fri 20/8/1999	0	Made release 0.6 (tag release-0-6) for 424 students
+			  (because two of the above errors would have
+			   affected the testing they are going to do).
+
+Tue 24/8/1999	2	Fixed two sources of major inefficiency in the parser
+			(parsing "(((((x)))))" was exponential in the number
+			of parentheses).  These were from the Breuer/Bowen
+			grammar.
+			Parse_Test.main now takes 4239K reductions 10M cells.
+			Beforehand, it took 6618K reductions 17M cells.
+
+Tue 2/11/1999	2	Implemented \mu expressions and \exists_1 predicates.
+Tue 2/11/1999	5	Implemented checktrue/checkundef cmds and added 250+
+			tests in the test/*.jaza files.  Not all pass yet.
+Tue 2/11/1999	1	Error: \nat_1 was not parsing correctly sometimes.
+			  This was hard to find.  Turned out that the check
+			  for the trailing underscore failed if EOF followed!
+			  Fixed the "_1" to be more careful, so that only
+			  known keywords get the "_1" added, all other "_1"s
+			  are treated as decorations.
+Tue 2/11/1999	0.25	Changed ZInv and ZClosure to coerce args to ZFSets.
+
+Fri 5/11/1999	4	Changed infix functions/relns to be non-curried,
+			as in Spivey.  I incorrectly had them curried before.
+			E.g. a+b means (_ + _) (a,b) now.
+			'iter' is still curried, as in Spivey.
+			  (Had to introduce extra AST (ZStrange) for iter)
+			Error: a mixture of '\\iter' and 'iter' was used,
+			  which would have stopped it working properly.
+			  Noticed this while making above changes and changed
+			  them all to 'iter' (Z/EVES does not define \iter).
+			Implemented iter (except for iter 0).
+			Moved Unfold tests into Unfold_Test.hs
+
+Fri 5/11/1999	0.25	Error: binary - had the wrong name in Unfold.hs,
+			so did not work.  Fixed this.
+			Now all the tests in tests/integers.jaza pass.
+
+Sat 6/11/1999	3	Reimplemented lambda functions.
+			They are now represented as set comprehensions.
+			(Slightly slower application, but nice and general).
+			Multiple arguments now become characteristic tuples.
+
+Tue 16/11/1999	2	Planning and documenting.
+
+Wed 17/11/1999	2	First inspection meeting (Unfold.hs).
+			Error: when an equality between two bindings was
+			  unfolded, it returned ZFalse if the bindings had
+			  different domains.  But this should be a type error.
+			Also found several things that needed to be 
+			documented more clearly.
+			Error: in (ZSelect e v), we decided that v should be 
+			  free (and should be affected by renamings etc.)
+			Also, noticed that unfold_expr is not idempotent,
+			because ZReln case was missing.
+
+Thu 18/11/1999	1	Fixed the above two errors and added the
+			extra documentation that was needed.
+			Removed more cases from unfoldexpr, so that we
+			get errors if it is called twice.
+Thu 18/11/1999	1.5	Removed (ZPair a b).  It was a special case of 
+			ZTuple for slightly more efficiency, but caused
+			too much code duplication.
+Thu 18/11/1999	1.5	Changed args of ZIntSet from [Int] to (Maybe Int).
+			Also, extended coerceZFSet to handle all non-recursive
+			free types.
+			Now, all the tests/*.jaza files pass!
+			[Later: I think sequences.jaza must have had errors]
+
+Fri 19/11/1999	1	Got it to compile with GHC.
+			(Had to copy Pretty.lhs into this directory).
+			Error: while testing: "program err: missing base type".
+			  Found that \fun was still curried.  
+			  Fixed this by changing it to take a pair.
+			Error: with examples/grades.zed, do SGSInit' fails
+			  with Error: unknown variable: x
+			  During the priming, 'stu' was renamed to 'x'.
+			  (Fixed much later)
+
+Sat 15/4/2000	2	Rewrote TextUI input functions to allow multi-
+			line input (it looks for matching brackets).
+
+Mon 17/4/2000	2	Switched to using new EParseLib library that gives
+			accurate error message positions.
+			Changed output syntax of bindings to use \[lr]blot.
+
+Tue 18/4/2000	0.5	Error: TextUI multiline input kept reading forever
+			if number of brackets became negative.  Fixed.
+			Error: TextUI \begin{schema}{Name} input did not work.
+			Fixed this to not rely on spaces before {Name}.
+
+Wed 19/4/2000	0.5	Implemented ZMax and ZMin.
+Wed 19/4/2000	0.3	Error: \seq T was not being unfolded correctly.
+			(Detected by tests/sequences.jaza).  Fixed.
+Wed 19/4/2000	0.1	Error: \# i..i returned 0 (should be 1).  Fixed.
+Wed 19/4/2000	8	Designing and implementing new constraint
+			optimization within ZGenFilt lists (Reorder.hs)	
+
+Thu 20/4/2000	4	Continuing implementing new constraint optimizer.
+Fri 21/4/2000	5	Finished enough of the new constraint optimizer
+			to be useful.  It is a lot more flexible than I
+			expected.  Added ZUniverse and (ZGenerator r e).
+			Major changes to the way the scope rules apply
+			to Eval.gen_filter (it now uses just a single env.
+			and relies on nested names all being distinct).
+
+Mon 24/4/2000	2.5	Tidying up.  Added SizeError to ErrorOr type and
+			wrote max_set_size and set_max_set_size functions.
+			Replaced Errors.okok with Monad.join.
+			Changed ZSetComp evaluation to avoid one call of
+			sequence, so environments are now pipelined into
+			evalexpr.
+			Added evalsetcomp, and added a ZSetComp case to
+			coerceZFSet, so that errors are reported better.
+Mon 24/4/2000	2	Started to reimplement unfoldstext, so it renames
+			local names to be distinct from surrounding ones.
+			But this is quite difficult, and is not completed yet.
+			Added tests/scope.jaza to test the issues.
+Tue 25/4/2000	1	Finished reimplementing unfoldstext for expressions
+			and predicates.  Schema expressions need more thought
+			as does the 'substitute' functions now (are they
+			still correct for the new scoping rules?).
+Wed 26/4/2000	2	Undid the new version of unfoldstext, after several
+			tries at including renaming local vars to be distinct.
+			This really has to be done as a separate, later, phase.
+			(Because schemas and vars that you lookup in the env
+			are already unfolded, but still have to be renamed!).
+Mon 1/5/2000	0.5	Extended Eval to recognise that powersets/relations
+			over an empty set contain (at most) the empty set.
+Thu 4/5/2000	0.5	Extended reorder_gfs to put as many predicates as
+			possible after each variable is chosen.  This reduces
+			searching, which also helps to avoid undefinedness
+			errors in later types (this arose while testing
+			FindBirthday in the BirthdayBook specification).
+Fri 9/6/2000	0.25	Changed Animate.hs to give an error whenever a
+			name is redeclared.
+Sun 18/6/2000	1	Implemented \pre in predicates and expressions.
+Sun 18/6/2000	2	Implemented \prefix, \suffix, \inseq.
+
+Fri 4/8/2000	2	Implemented squash, \filter and \extract
+Sat 5/8/2000	1	Error:   \id was incorrect (misunderstanding).
+			It was \id 3 = 3, but is now corrected to be
+			(\id T) = \{x:T @ (x,x)\}.  That is (\id \nat) 3 = 3.
+			Also changed 'succ' to unfold into a ZSetComp.
+Wed 9/8/2000	0.5	Added forceexpr, to force evaluation of partially
+			evaluated sets.  This is used only by Animate.hs.
+Wed 9/8/2000	0.5	Implemented disjoint and partition for finite sets.
+
+Thu 10/8/2000	1	Tidied up the OpInfo structures in Formatter.hs
+			to avoid all the GHC warnings.
+
+Sat 12/8/2000	1
+Sun 13/8/2000	2.5	Implemented the 'uniquify' second pass in Unfold.hs
+			which renames nested bound variables to be distinct.
+			All the tests/scope.jaza tests now pass.
+
+Mon 14/8/2000	1	Added two new ways of proving two sets to be 
+			non-equal, based on their size (finite/infinite etc.).
+			Changed TextUI to handle backspaces, because
+			runhugs doesn't do command line editing.
+
+Fri 18/8/2000	0.5	Improved lexer so that \begin{...} commands do not
+			have to appear at the beginning of a line.
+Fri 18/8/2000	0.5	Implemented a 'sum' toolkit function, for use in
+			a student assignment (424, module 3).  Ideally, in
+			the future Jaza will be able to handle a recursive
+			definition of this via an axdef environment.
+
+Wed 6/9/2000	0.25	Error: E.v always expands to (x~y).v !
+			This caused several tests to fail in the comparison
+			paper between Jaza and other animators.
+			Problem was in Subs.hs, a definition did not define
+			`e2' so accidentally picked up a global definition
+			(from some test-case definitions).
+			Moral: put tests in a separate module!
+
+Wed 6/9/2000	0.25	Strengthened coerceZFSet so that it attempts to
+			force the evaluation of set displays and sequences.
+			This increases the chance of being able to iterate
+			through these kinds of values, but a better solution 
+			might be to let them generate streams directly for
+			use by the generate-and-filter stage.
+
+Tue 3/10/2000	0.25	Error: the substitution functions transformed 
+				ZSeqDisplay into ZSetDisplay (a typo).
+			This was a cut-paste error from a long time ago.
+			This was the first error reported by an external user.
+
+Tue 3/10/2000	0.75	Reworded some error messages to make it clearer
+			that they are due to incompleteness, rather than
+			incorrect input.
+
+Tue 3/10/2000	1	Added 'set' commands so users can set and view
+			the search parameters.
+
+Thu 19/10/2000	0.5	Extended lexer to handle DOS files.
+			It now allows carriage returns.  
+			Also allows form feeds and vertical tabs.
+
+Fri 20/10/2000	3	Error: substitution on E.x was incorrect.
+			   (Misunderstanding of semantics)
+			   This was found by a 424 student doing a project.
+			Added subs_test to test substitute and free_vars.
+			Improved error message when schema fields clash
+			with global names -- this should really be allowed
+			rather than give an error.
+Fri 20/10/2000	2	Changed the [ZGenFilt] scope rules and the free_vars
+			and substitute functions.
+
+Sat 21/10/2000	5	Modified the substitution functions so that they 
+			take the set of outer names, and avoid those names 
+			whenever they rename.  This is the final step in 
+			ensuring that the uniquify (no-repeated-local-vars)
+			invariant is maintained.  This also involved changing 
+			quite a bit of plumbing to pass the outer names down 
+			through all the right environments.
+
+Fri 27/10/2000	0.5	Added \lblot...\rblot syntax for bindings.
+
+Wed 1/11/2000	9	Rewrote ErrorOr error reporting completely to give
+			much more detailed messages, with context information.
+			The TextUI interface now prints these messages using
+			the formatter, so that they are readable.
+			Also, Eval.Env and Eval.max_size have been split
+			out into separate files.
+
+Fri 3/11/2000	4	Error: precondition check in Subs.hs failed.
+			Turned out to be a subtle problem in subsexpr/pred
+			in Unfold.hs: they were calling uniquify_* without
+			adding the 'dom subs' vars into the avoid set.
+			This has fixed one cause of it, but Dana's example
+			shows that this is still a problem.
+
+Tue 7/11/2000	2	Rewrote one_point and simple_opt_gfs functions in
+			Optimize.hs, so that they respect the new scope rules.
+			This fixed the above error in Dana's spec.
+			Lesson: This error would have been caught much earlier
+			if parse trees and internal ASTs were different types,
+			so that it was clear which scope rules apply where!
+
+			Also, reordered two clauses in Reorder.hs so that
+			(a,b) \in ZReln is treated before (a,b) \in E.
+			The latter was a recent edition, and having these in
+			the wrong order broke the x<const constraint handling!
+
+Wed 6/12/2000	6	Fixed error reported by Shaochun.
+	Error: nested \mu terms were not being optimized enough.
+	Cause: 1. They were being optimized, but then subs was breaking
+	          up Evaluate terms into separate Choose+Check.  Fixed this.
+	Cause: 2. The body of \forall was not being optimized.
+	Eval.hs: Changed gen_and_filt so that it checks future predicates 
+		for False before returning an Undefined error.  
+		This should make the order of predicates less significant.
+	Eval.hs: Changed forall so that more predicates are moved from the 
+		body into the ZGenFilt list.  This uses the theorem:
+		   (forall D | P @ A) = (forall D | P \land \lnot A @ false)
+
+Fri 8/12/2000	5	Unfolded exists inline within [ZGenFilt].
+	Also V \in \{D|P@E\} is translated to: (\exists D|P @ V=E).
+	These allow lots more typical Z schemas to be executable.
+	However, still need to normalize schemas to get maximum benefit.
+	Debugging the optimizer is becoming very hard, because everything
+	happens in one pass -- need to be able to break it into many passes.
+
+Tue 12/12/2000	1	Error: {D|P@(X,Y)}~A not being fully optimized.
+	This was reported by Shaochun (eval fbegin~b).
+	Changed Eval.applyfunc to include the WHOLE [ZGenFilt] in the
+	reordering process, not just the X=A equality.  This was an
+	oversight in the original design of the algorithm.
+
+Wed 13/12/2000	0.5	Improved eval of dom/ran {d@(a,b)} expressions.
+Wed 13/12/2000	1.5	Relaxed scope checking of schema components.
+	When a schema is used as a predicate or \theta expression, its
+	fields are now allowed to take on the values of global constants!
+	This seems bad style, but seems to be allowed by the Z RefMan?
+
+Sat 16/12/2000	2	Added GNU readline editing to GHC version.
+	There is no Readline library for Hugs, so I wrote a dummy one.
+	It handles backspaces, but ideally Hugs should be installed with
+	--readline so that all Hugs programs have proper readline editing.
+
+Mon 24/9/2001	0.2	Removed incorrect error checking in decorated schemas.
+	Error: unncessary name clashes reported in decorated schemas.
+	Found while stress testing Z tools with large schemas.
+
+Tue 25/9/2001	2	Speed improvements after profiling.
+	Moved nub to top level of unfoldstext, rather than in each
+	recursive call.  For a schema with 1000 fields, this reduced
+	the time from 2.68 seconds to 1.14 seconds.
+	Also called schema_compatible more (removed code duplication).
+
+	NOTE: turning off precondition checking in Subs.hs:presubstitute
+	   reduces this further from 1.14 secs to 0.82 secs.  Expensive!
+	NOTE 2: for a 1000 field schema (see ~/z/tc3.zed) the above nub
+	   now takes 61% and schema_compatible takes 39% of the time!
+
+Fri 28/9/2001	2	Added experimental 'machine' construct.
+	Intended to be used for translation to B and the BZ Testing Tools
+	project.
+	This is done as a LaTeX environment, rather than an expression,
+	and machine names are in their own namespace.
+	TODO: check that state, init and ops have same state space.
+
+Thu 15/11/2001	1	Removed bags.
+
+Sat 17/11/2001	8	Defined Visitor class in AST.hs
+	This required moving Env from Env.hs into AST.hs.
+	Used it for the optimise pass in Optimise.hs.
+	TODO: Move more of the Visitor instance code into AST.hs
+
+	Then (separate commit) added the one-point rule back into
+	the optimise pass.  But perhaps it would be more flexible
+	if it were a separate pass?
+
+	Error: Noticed that the existing optimisation, which inlines Exists
+	is not sound within Exists_1.  For example:
+	         (Ex1 x:70..80 | (Ex n:Z | n*n=x)) = true
+	     but (Ex1 x:70..80; n:Z | n*n=x)   = false  (n=9 and n=-9)
+	Removed this optimisation for the moment.
+
+Thu 22/11/2001	10	Rewrote Unfold pass to use Visitor.
+	420 LOC -> 295 LOC.
+	Not entirely finished.  (Freetypes need more fixing).
+	Uniquify-vars needs checking.  Some freetype and scope tests fail.
+
+<some changes not logged during 2002.  Especially the BZTT support.>
+
+Feb 2005        12	Added reasons to ZTrue and ZFalse and maxdepth.
+	Maxdepth was suggested by Yves Ledru as we worked on examples together.
+	Many changes to Optimise.hs and Reorder.hs to improve evaluation
+	and to unfold just Exists within schemas, setcomp etc.
+
+Sat 26/3/2005	6	Further reordering improvements.  Updated userman.
+	This was the 1.0 release.

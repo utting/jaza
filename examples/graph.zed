@@ -1,0 +1,29 @@
+% Directed-Acyclic Graph Example from the following (Possum) paper:
+%
+%  Requirements Engineering and Verification using Specification Animation. 
+%  By Daniel Hazel, Paul Strooper and Owen Traynor. 
+%  In A. Quilici, B. Nuseibeh and D. Redmiles (editors),
+%  Proceedings 13th {IEEE} International Conference on Automated Software 
+%  Engineering, pages 302-305, 1998. IEEE Computer Society.
+
+\begin{zed}
+  NODE == 0 \upto 1000 \\
+  NODES == \power NODE \\
+  EDGES == \{ e : NODE \rel NODE | 
+	      (\forall n : \dom e @ (n \mapsto n) \notin e\plus) \} \\
+  GRAPH == \{ n:NODES; e:EDGES | 
+	      \dom e \subseteq n \land \ran e \subseteq n \}
+\end{zed}
+
+% This gives False, due to the circularity.
+% evalp (\{2,3,4\} \mapsto \{2 \mapsto 3, 4 \mapsto 2, 3 \mapsto 4\}) \in GRAPH
+
+% But this gives true (the circularity is removed).
+% evalp (\{2,3,4\} \mapsto \{3 \mapsto 2, 4 \mapsto 2, 3 \mapsto 4\}) \in GRAPH
+
+% NOTE: The above worked first time, but this next one gave
+%       Undef initially.  After some minor improvements to Eval,
+%       (allowing ZTuple [a,b] to be defined more often) it gave True.
+%
+% evalp ((2 \upto 31) \mapsto \{x,y:2 \upto 31 | y = (x*x) \mod 32\}) \in GRAPH
+

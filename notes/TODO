@@ -1,0 +1,578 @@
+Jaza  ==  Just Another Z Animator
+======================================================================
+DESIGN PHILOSOPHY: The animator is like an automatic theorem prover
+(which unfolds and simplifies terms), followed by these specific
+animation stages (for a given input-output mode):
+	DNF  (TODO)
+	optimization
+	enumeration.
+
+The optimization phase derives constructive constraints 
+from predicates (i.e., constraints that can be used to enumerate
+a stream of possible solutions), then sorts those constraints
+based on the expected number of solutions.
+
+RELATED WORK:
+The constraint-sorting stage is similar to mode analysis, but with much 
+more approximate modes (either O(..) polynomials over input sizes, or
+average/lower/upper bound numbers estimated based on the expected 
+size of input sets).  Also, because there are a lot of constraints,
+the search problem is much more interesting, and AI heuristic
+search techniques are needed.
+
+This is also similar to CLP, with the enumeration stage corresponding
+to labelling.  But in Jaza we typically know the exact set of 
+constraints in advance, so can statically (heuristically) analyze
+which labelling order is best (this is the optimization phase).
+QUESTION: Given a static set of constraints, are there any ways 
+          in which CLP is better than the Jaza method?
+
+======================================================================
+TODO:
+======================================================================
+
+The precondition check in substitute still fails sometimes.
+Switch to the CadiZ way of handling scope (unique names for vars).
+
+Distinguish global vars from local ones.  Then substitute can
+ignore global ones, and fewer vars will need to be avoided
+when choosing fresh variables (issue: how to print these global vars?)
+
+Reorganise the FiniteSets module so that it is generic again,
+and is an implementation of an FSet class.
+The reln/func operations will require elements to belong to a
+`Pairable' class (which ZExpr will implement).
+Then VarSet can be an instance of the FSet class.
+Then pass the entire set of avoid_variables in the env again
+(and remove avoid_variables from Subs.hs).
+
+Change ; so that it leaves unused fields unchanged.
+[DONE, Feb 2005.]
+
+Reorganize the simplification and optimization passes so that
+they can be done incrementally, with the user able to inspect the
+result of each pass.  This would make debugging a lot easier too.
+(Heading towards a theorem prover architecture here!)
+Also, rethink the unfold-at-the-beginning philosophy.
+Is this really necessary?  Can typechecking be done without this?
+(Maybe it is better for eval to look up global names when necessary).
+Also, see if some passes (simplification, DNF?, constraint propagation,
+and perhaps even set-size calculation) could be generated from a
+file of rules (with a preprocessor that turns them into Haskell,
+and into Z-EVES notation for proving them).  Eg.
+    pred  p \land p_2 \iff p   provided p==p_2.  
+    (Should side-conds be in Haskell, or Z-like predicates?)
+
+Change schema representation so a schema is just a set of bindings.  
+This has the advantage that the bound vars do not all need to be in
+the output binding, so we can flatten schemas much more agressively.
+[In fact, it already is this representation!]
+
+Change ZGenFilt representation to remove Evaluate, and perhaps add more
+fields to Check to say whether the Check is necessary, or just a
+derived constraint from some other fact (the latter can be discarded).
+Similarly, extra fields might be useful for Choose, such as the
+original schema name/expr -- useful when printing?
+(Ideally, do this for all AST structures -- to allow extra info like:
+   * type info
+   * free vars (if empty, can pre-evaluate!)
+   * size-estimates
+   * a GLOBAL FLAG for names etc.  DEFINITELY NEED THIS (like Z-EVES).
+   * the original name/expr of the term  (for printing)
+
+More Radical Possibilites for the AST:
+(use current AST for the parser output only):
+   * merge exprs and preds?
+   * use a VERY generic AST, like: Quant/Call/Builtin/Var
+	(suitable for a wider variety of langs, like Z and B etc.)
+   * use a Zeta-like 'homomorphism' operator for defining \mu, the B
+	choice operator (useful for axdefs?) etc. 
+   * use list of args for assoc, ac, ac+id, ac+id+idemp operators?
+	(then True becomes ZAnd []!)
+
+Define HO functions over the ASTs!
+Use these for the simplification and typechecking phases etc.
+   * map (with a context arg)   (return orig term if args don't change?)
+   * extract
+   [22 Nov 2001: Done for two passes: Unfold and Optimise].
+
+
+Define Haskell type classes for some of the common concepts
+(maybe even use existential types for OO-like features?)
+
+Add a simplifier for integer equalities and inequalities!
+
+Inline schema types?  
+That is, Decls=[a:S,c:T] where S = [a:T,b:T] becomes
+Decls=[a:<schema>,a_2:T,b_2:T,c:T,a=\theta S_2].
+Advantages: flattens Decls, which allows optimizer to take advantage
+    of interactions between the (previously nested) levels of declarations.
+    Also might make output more readable (less nested).
+
+Make 'exit' a synonym for 'quit'?
+and 'read' a synonym for 'load'?
+
+Maybe unfold x in {D|P@E} to (exists D|P@x=E) ?
+Also, maybe inline exists within [ZGenFilt] lists?  [Not valid for Exists1]
+Together, this will allow many more schemas to be executable.
+
+Find out why this takes a long time and causes a control stack overflow:
+  evalp (\exists x,y: 0 \upto 100 
+	 | x*1 \in \dom (0 \upto 200 \cross 0 \upto 200) @ true)
+
+Normalize schemas before starting optimization.
+This will move setcomps etc. out of the type position and allow them
+to participate in the optimization more easily.
+
+Check the correctness of schema \forall etc. (it currently ignores
+the predicates in the bound schema text).
+
+Use constructive negation to deduce positive consequences.
+Or at least, change val \notin S into val \in BaseType \ S.
+This is useful for \{ x : \nat | x + 1 \notin \nat \} for example.
+
+Check that rename_schema (and other parts of Unfold?) work correctly
+when called on something that has already been unfolded.
+(This is not obvious, because the unfolding has changed the scope rules).
+
+Proposal: Support a simple notion of 'refinement', that allows
+	given sets to be refined to more explicit/finite sets.
+        Eg. Allow commands like this (which must appear after decl, 
+          but before first use):
+	\begin{animation}
+	  x ::= A | B | C | D \\
+	  y == x \setminus \{D\}     (Does this impact typechecking?)
+	\end{animation}
+  or just use equality predicates to get the same effect?
+  At the same time, cache the Unfold/Optimize/Eval environments
+  inside the Animator structure.
+
+Tidy up pretty-printing of ZGenerator (and parsing?).
+
+Modify AST to record schema names/exprs even after they are unfolded,
+so that they can be used when printing.  This will reduce the size
+of many large terms.  Alternatively, check while printing to see
+if the current term is equal to any term defined in the global env
+(or local defn?) and if so, print its name instead.
+
+Investigate why zintersect is sorting \seq \nat before ZGenerator...
+(This causes the last test in tests/sequences.jaza to fail).
+
+Properly implement the size-estimation heuristics in Eval.hs and Reorder.hs
+(and change zintersect to use them.  This will improve it).
+Also, allow zintersect to return unevaluated intersections when they
+are too big/hard.
+
+Separate the abstract data types from the structures returned by the parser?
+(Then Unfold would transform the latter into the former).
+This would make it easier to document the scope rules.
+(But Formatter_Test would need to Unfold terms before printing them).
+
+Test suites: Make these more comprehensive.  (Cover every line of code?)
+
+Implement type checking and inference.
+
+Change Reorder.hs so that it is constructed from a file of constraint 
+theorems, written in LaTeX Z or something similar.
+Do the same for a simplification phase, which runs after Unfold.
+
+Implement this missing toolkit function
+(needs type inference first):
+    ZStar
+
+Finish implementing schema operators and unfolding.
+But schema negation (and implication) require normalizing the 
+signature to base types first. 
+
+Improve end-of-file handling under Hugs, so it exits Jaza.
+Catch Control-C, so that it returns to the Jaza prompt,
+rather than exiting to Hugs?
+
+Change Eval of ZSetComp so that it reports fatal errors
+(eg. when the set contains an undefined member).
+(This requires distinguishing fatal errors from search-space errors etc.)
+Also, it should report search-space/set-size errors if it gets
+passed back unevaluated, but then needs to be converted to a
+finite set later!
+
+Documentation: write a Programmer's Guide?
+(There is already a conference paper about the Jaza design).
+
+Add more algorithms that deal directly with the ZSetComp form.
+This would allow evaluation of things like \comp of infinite sets.
+A further step would be to then add coercions from all (?) other
+forms into the ZSetComp form.
+
+
+============================================================
+Possible Future Extensions
+============================================================
+
+Handle axdefs as much as is sensible?
+
+Test (and improve if necessary) the layout parameters of the formatter.
+Implement formatting of gendef's.
+
+Implement iterative deepening search.
+
+? Implement graphical user interface (TK?)  [Greg]
+
+? Add a typechecker?
+
+Extend Animate.hs to allow the eval/evalp commands to refer to
+fields of the current schema solution?
+
+Consider how to better meet the tool-goals on p636 of:
+	Edmund M. Clarke and Jeannette M. Wing,
+	Formal Methods: State of the Art and Future Directions
+	ACM Computing Surveys 28(4) 1996.
+
+
+======================================================================
+	Possible Style/Code Improvements
+======================================================================
+Merge Optimize.hs phase into Eval.hs?
+	No, it is nice to have a distinction.
+	The optimize phase deals with symbolic rearrangements,
+	    typically based on free-var information etc.
+	The eval phase should not need any free-var information.
+	    Instead it just searches as many values as quick as it can.
+
+Define the SetSize data type out of Eval.hs and make it an instance of Num.
+
+Move the ignore-newline stuff out of the parser and into the lexer?
+(As in the Z standard?)
+
+======================================================================
+	Possible Efficiency Improvements
+======================================================================
+Important:
+Instead of using coerceZFSet everywhere, add a function that returns
+a lazy unsorted list of the solutions (it should also be possible to
+query it to find out an estimate of how many solutions there will be). 
+This allows solutions to be returned one at a time, rather than having to
+generate them all up-front (because coerceZFSet must sort them) and would
+allow some infinite sets (like ZIntSet [1] []) to be generated.  This is
+exactly what Eval.gen_and_filter needs.  (And it is needed before we
+can implement iterative deepening).   (Note: for efficiency, it would
+be desirable to have two versions of the generator: one that removes
+duplicates and one that doesn't -- the latter would be used if we
+are turning the output into a ZFSet anyway).
+
+Change to using a parser-generator like Happy?  Using the Z-std
+grammar, or an adaption of the Fuzz grammar.
+
+Investigate calls to 'sequence', because it is non-lazy.
+That is, it requires the whole list to be processed before it 
+returns its result for further processing.  This prevents pipelining...
+
+Change FiniteSets functions to use 'compare' once rather than <, ==, >.
+Also, check what implementation of 'compare' the Set type has.
+
+Change FiniteSets so that the mergesort removes duplicates as it sorts?
+
+Change FiniteSets so that dom/range restriction/subtraction are more
+efficient (they are quadratic, but could easily be linear).
+
+Add redundant fields to some ZValue constructors, to cache derived results, 
+like size of the set, or what local variables they depend upon?
+This would make it more obvious when it is safe to pre-evaluate expressions.
+
+Change Eval::gen_and_filter so that it evaluates all types upon entry,
+    rather than every time a value is chosen.  This would save time 
+    for (Choose v s) terms (s would be evaluated only once).
+
+
+======================================================================
+	Current Limitations and Deviations from Z
+======================================================================
+Finish implementing some less-used parts of Z:
+   \neg?  \star
+   \disjoint \partition
+   More Sequence Ops:  ZExtract,ZFilter,ZSquash,ZPrefix,ZSuffix,ZInSeq
+                       (and implement the corresponding ZGenerator).
+			\dcat  (not even recognised).
+
+Remove bags, and start moving closer to Z standard?
+
+Schema negation and projection are not implemented, and schema or/implies 
+etc. can give wrong results when signatures are not identical 
+(fixing this requires normalizing schemas first).
+NB. When normalizing, must move terms out of types into predicate part.
+    This raises scope issues too!
+	Look at Possum papers on this.
+
+Theta expressions are not allowed to include schema renaming.
+
+Stricter type compatibility requirement for schema compositions than Z.
+  (types must be identical, not just have the same base type).
+
+Schema fields cannot be the same as global names.
+(but more deeply nested names can).
+
+No generics.  None at all.  Not even parsed.
+
+Declarations of user-defined infix/prefix/postfix functions/relations
+are not supported.  (The proposed Z standard provides a way of doing this).
+
+The Lexer allows certain operators ([=.,+*<>-]+) to be treated as words.
+This came from Breuer and Bowen's "Concrete Z Grammar", but may not
+be desirable/necessary in comparison to the Spivey Grammar.
+For example:  (1,-2) is illegal, because ",-" is lexed as an operator.
+Is this correct/desirable?
+
+It accepts axiomatic definitions, but does not allow those names to be used.
+
+
+
+======================================================================
+Design Notes and Rationales
+======================================================================
+
+Exception handling 13 May 1999
+------------------
+This was a difficult issue, early on.  Took a day to solve.
+I wanted an elegant way of handling the following kinds of
+exceptions during evaluation:
+  - type errors and other illformed-specification errors (missing vars etc)
+        Eventually these could be removed by upfront typechecking.
+	Ideally, these would *always* be reported to the user immediately.
+  - undefined terms.  These should sometimes be discarded by boolean ops.
+        Eg. false and undef  should evaluate to false.
+        However, a=b should return false if a or b contain any undef parts.
+          (Actually standard Z says 1=Undef can be either True or False, but
+           we don't know which!  So we should return Undef. (3 valued logic!))
+  - search-space-too-large errors.  These can be returned from anywhere.
+        They can be treated like undef (that is, discarded if the result
+        is not really needed).
+
+Considered four possible solutions:
+  1. Every eval function returns a pair (Error, Value)
+  2. Have an 'error wrapper' around all results (like the Maybe type).
+        This gives similar functionality to (1), but requires explicit
+        checking to get access to the Ok value.
+  3. Push errors into ZValue (and Bool, and Binding) types.
+        Messy, because each of these types must contain the same 
+        errors => duplication.
+  4. Use Monads to trap errors and handle exceptions?
+        I was a bit unclear how this would work, and did not want all
+        the evaluation functions to have to be written in monad style.
+        
+Conclusion: (2) seemed best, because forces checking for Ok values, 
+   but factors out all error conditions into one type.
+   Later I introduced the check_<type> :: ErrorOr a -> (ErrorOr (), a)
+   functions, which essentially simulate (1).
+
+Mon 28/6/1999: Made ErrorOr (the error wrapper described above) an
+instance of Monad.  This makes simple error handling (returning the
+first error that you come to) much more readable, but more
+sophisticated error analysis is still possible (unchanged), as before.
+The check_<type> (now called coerce<Type>) functions now return ErrorOr
+values, which makes them nicer to use in the monad style.
+So, can now switch between style 2 and 4 as desired.
+
+
+Expression versus Values 13 May 1999
+------------------------
+Should expressions and values be part of the same type, or
+different types?  Currently I have made them different types.
+
+Disadvantages: 
+
+   - prevents 'partial evaluation' of exprs/preds.
+
+   - means that some subexpressions will be repeatedly evaluated
+        when once would do.  Eg (forall x:T @ p(x) => q and r(x))
+        the q could be evaluated outside the x 'loop'.
+        However, static analysis can probably detect a lot of these
+        and transform them to:
+                  let q' = q in (forall x:T @ p(x) => q' and r(x))
+
+   - ZValues ends up having to keep some things unevaluated anyway.
+        Eg. T \fun S is usually too big to expand out into an FSet,
+            so we want to keep it as a function type constructor.
+
+Advantages:
+
+   - Haskell type system keeps expressions/predicates separate
+        from results.  For example, functions that take ZValues 
+        as arguments are guaranteed that they are in evaluated form.
+
+Sat 26/6/1999 Decided to merge the two types.
+ZValue is retained as a synonym to indicate evaluation results.
+
+
+Theorem Proving?  Implicit/symbolic sets? 13 May 1999
+-----------------------------------------
+It would be possible to include 'implicit sets' into ZValues,
+perhaps like this:   ISet [ZGenFilt] ZExpr
+Large sets could be left in this symbolic form.
+Perhaps any set larger than, say, 20, could be left in this form?
+Or perhaps the user could optionally declare that some sets should
+be kept in 'implicit' form as long as possible.  One of the Prolog
+Z animators uses this idea.
+
+Then membership could (sometimes!) just be a predicate test,
+which would avoid building the whole set.  Set operations
+could be done as symbolic predicate operations (union becomes \lor,
+intersection becomes \land, etc.).
+
+However, this does not always work, eg for sets like:
+         { x:Big1; y:Big2 @ x+y }
+because, given a possible member of the set, it is not obvious how
+to find the right values of x and y to test.
+
+Decided to avoid this for a while, because it is getting too close
+to full theorem proving.  Every builtin function would need a version
+that worked on these sets, plus versions that worked on a mixture
+of FSets and ISets.
+
+Eventually decided to have several representations of sets?
+          1. finite           (FSet s)
+          2. given sets       (GivenSet n)
+          3. integer ranges   (IntSet [..] [..])
+          4. implicit?        ISet ZExpr   ???
+          5. constructed  eg. (Closure ZPower s)
+	Have a call that converts all of these to FSet (or error)
+	  (like checkFSet)
+	Some operators (eg. #, in) will handle some of them especially.
+
+
+Historical Notes on 'implicit sets':
+------------------------------------
+
+Implement 'implicit sets'?  (base set/type, plus predicate)  6hrs
+Or implement function/relation/powerset constructors
+as delayed function calls.  
+[29/6/99: This all seems easy now that ZValue is a subset of ZExpr.
+ Delayed function calls are returned as ZCall structures, and
+ implicit sets are just ZSetComp.  But evalexpr never returns an
+ unevaluated ZSetComp at the moment, it gives an error instead.
+ Returning incompletely evaluated expressions sometimes requires creating
+ a closure -- which is also necessary to support multi-arg lambdas)
+ Set membership could sometimes
+ be transformed into a predicate test, but this depends upon the size
+ of the set and how its bound variables relate to the return value etc.
+5/8/99: All implemented!  No closures -- just do a substitution instead.
+  Instead of turning the whole set comprehension into a membership test,
+  we just use the member value to reduce the search space of the set.  
+  The reverse matching algorithm uses just structural matching, but could 
+  be extended to handle one-to-one functions, like Patt + 1 matched 
+  against 3 (to infer that Patt=2), I guess.
+]
+
+Implement schemas and bindings [Est 2hrs, Actual:12/5/1999+24/6/1999, 2 hours]
+Implement schemas-as-types     [Est 3hrs] FULLY DONE NOW.
+
+
+======================================================================
+Other Historical Notes, from the original design (early May 1999)
+======================================================================
+Implement specs (list of defns?) [Est 4hrs, Actual about 12 hours, ongoing]
+    (plus another 6 for unfolding terms, using the spec -- this was
+     something that I'd not thought of doing as a separate stage, but
+     it works out nicely to do it as each Z paragraph is defined.)
+
+Implement Z parser  [Est 16hrs, Actual about 10 days (Greg), plus a week
+ for me to implement parser combinators with error handling, cuts and 
+ full backtracking.  TODO: add error recovery.]
+ (The Z grammar is much nastier than I expected!)
+
+
+
+======================================================================
+Design Issues that arose during implementation/testing/use.
+======================================================================
+
+Early August 1999: MAJOR EVALUATION ISSUE #1:  
+  Some large sets need to be left unevaluated longer!
+  Eg.  s in X \fun Y  is often better not to evaluate X or Y, if they are big.
+       This is particularly a problem when X or Y is a schema type,
+       which unfoldes to a huge set comprehension with infinite solutions!
+       (This stops the classsys.zed init operation working).
+  [Fixed: Thu 5/8/1999, ZSetComp's that give size error are left unevaluated.]
+
+
+MAJOR EVALUATION ISSUE #2:  [Reported 16/8/1999, via examples/graph.zed]
+  Sometimes need to coerce evaluation results into canonical form.
+  Eg. ZTuple [ZIntSet [2] [31], ...].
+  To save space/time, we do not want to do this on the first eval pass,
+  (in case the context allows it to be evaluated more efficiently???),
+  but do need to do it when testing equalities etc.
+  Possible solutions: 
+    1. have a recursive 'coerceCanonical'? or 
+    2. just call eval again and ask it to work harder?
+    3. smarter zequal function which knows how to compare various types
+	(and zmember/zsubset etc. would inherit this, or do the same).
+        This seems the best solution.
+      [19/8/99: Done for zequal, not for zmember yet]
+      [28/3/00: Most zmember cases now seem to be covered]
+
+
+Scope Issues  [19/4/2000]
+  It is desirable to be able to move predicates and expressions in 
+  and out of the 'type' positions of a [ZGenFilt].  
+  This is needed so that later predicates can be
+  pushed earlier and right inside the generator.  
+	Eg. x:\nat | x < 8  should be transformed into 
+	    x : \nat \cap (- \infinity .. 8)   then into
+	    x : 0 .. 8    which is useful as a generator.
+
+  [An alternative would be to leave the types simple, then search
+  through the predicates before using the type as a generator.
+  But I prefer to do as much analysis at optimization time as possible,
+  rather than leaving it until run time.]
+
+  The current scope solution (pass around two environments while
+  evaluating [ZGenFilt]s, so that types could use the outer environment,
+  while other terms could use the inner environment) does not allow
+  this flexibility.   Eg.  {x:\nat; y:\nat; y<x} cannot currently
+  be transformed to {x:\nat; y:0..x-1} because the type of y is
+  outside the scope of x.
+
+  Goals: Retain freedom to reorder [ZGenFilt] contents almost 
+	 arbitrarily (except that cannot refer to a variable before
+	 it's Choose position).
+	Make it easy to move terms into type positions.
+
+  Possible Solutions:
+    1.  Every type position has TWO terms, one which has outer
+	scope and one which has inner scope (the semantics is that
+	the real type is the intersection of these two).
+	Yuck!  Messy, and would make it hard to calculate that
+	intersection nicely.
+    2.  Allow an explicit 'Use-outer-scope' wrapper around ZExprs.
+	This could be inserted around type expressions where necessary
+        and would mean 'discard all variables that are local to the
+	current [ZGenFilt] before evaluating this expression'.
+	Moving terms inside this wrapper would still be tricky.
+    3.  Evaluate all types at the very beginning of the list,
+	and give the results fresh names.  Those fresh names would
+        be the only thing to appear in type positions, so this gives
+        a similar effect to the above two solutions, but allows more
+	freedom moving terms around anywhere within the list.
+	  Disadvantage: cannot easily unfold those names.
+	  Advantage: evaluating types early is good for efficiency too.
+    4.  Use a static scoping mechanism, rather than dynamic lookup
+	of names.  Eg. de Bruijn indices or an offset into the
+	environment (no because reordering lists would change these)
+        or allocate each variable in a term a unique id and refer 
+	to that id everywhere.
+    5.  Rename some bound vars (if necessary) to ensure that a
+	local variable is never nested inside another local
+	variable with the same name.  Then no scope problems can
+	arise, because a variable being declared can never hide
+	any of the variables visible at that point.  
+	  Advantage: I know that some other tools (Z/EVES?) use this.
+	  Disadvantage: Must preserve this property when you move
+	      a term that contains bound variables inside other
+	      bound variable declarations.  This requires renaming,
+	      which requires a supply of fresh var names.
+
+    Conclusion: 5 seems the safest and gives simpler scope handling
+	than the current approach (of two environments).
+	Also, it seems that it can be elegantly done in just one place:
+	    just before unfoldstext returns its result.
+
+
+

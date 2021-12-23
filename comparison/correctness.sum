@@ -1,0 +1,183 @@
+Possum does not like just a schema name as a declaration
+in set comprehensions, lambda or mu expressions
+(but it is okay in exists!).
+
+schema S is
+dec
+  x,y: 1 .. 10
+pred
+  x < y
+end S
+
+
+%% Schema evaluation
+%% How to ask for `some solution' varies between animators.
+%% In Possum, you just type the schema name.
+S
+&
+Example: \lblot x==2,y==5 \rblot
+\\
+
+(exists S @ y < 3)
+&
+true                            CORRECT
+\\
+
+{ S | y < 3 }
+&
+ 0 : Expected token `}' or token `(' or token `.' or token `:' 
+ { S <* HERE? *> | y < 3 } 
+\\
+
+\{x:S | x.y < 3\}
+&
+{[x := 1, y := 2]}              CORRECT
+\\
+
+
+%% \mu expressions
+%% ---------------
+(mu x : 1 .. 100 | x*x in 81 .. 90)
+&
+9
+\\
+
+(mu x : 1 .. 100 | x*x in 82 .. 90)
+&
+no solution                      CORRECT
+\\
+
+(mu x : 1 .. 100 | x*x in 81 .. 100)
+&
+9                                WRONG
+\\
+
+%% Lambda functions
+%% ----------------
+(lambda x: 1 .. 100 @ x*x)  9
+81                               CORRECT
+
+(lambda x: 1 .. 100 @ x*x)  0
+no solution                      ????
+
+(lambda s:S; x:1 .. 100 @ s.x + x)  ([x:=1,y:=2], 30)
+31                               CORRECT
+
+%% \theta expressions
+%% ------------------
+{ S | y < 3 @ theta S }
+&
+0 : Expected token `}' or token `(' or token `.' or token `:' 
+ { S <* HERE? *> | y < 3 @ theta S } 
+\\
+%% Expanding S by hand:
+{ x,y:1..10 | x < y and y < 3 @ theta S }
+&
+{[x := 1, y := 2]}                CORRECT
+\\
+
+{ S;S' | y = 2 and x' = 9 @ theta S' }
+&
+0 : Expected token `}' or token `(' or token `.' or token `:' 
+ { S <* HERE? *> ; S ' | y = 2 and x ' = 9 @ theta S ' } 
+
+%% Expanding S and S' by hand:
+{ x,y,x',y':1..10 | x<y and x'<y' and y=2 and x'=9 @ theta S' }
+
+{[x' := 9, y' := 10]}             WRONG
+
+
+%% Set and Logical Operators
+%% -------------------------
+
+power_1 (1..2)
+{{1}, {2}, {1, 2}}		  CORRECT
+
+power_1 (1..0)
+{}                                CORRECT
+
+(exists_1 x:1..10 @ x = 3)
+true                              CORRECT
+
+(exists_1 x:1..10 @ x < 3)
+false                             CORRECT
+
+%% partition, \filter, etc.
+%% ------------------------
+
+% With syntax=zed
+\langle 1 \upto 4, 7 \upto 10, 5 \upto 6 \rangle \partition (1 \upto 10)
+false                             WRONG
+
+% With syntax=zed
+\langle 1 \upto 4, 8 \upto 10, 5 \upto 6 \rangle \partition (1 \upto 10)
+false                             CORRECT
+
+disjoint <1..4,7..9,5..6>
+true                              CORRECT
+
+disjoint <1..4,7..9,5..7>
+false                             CORRECT
+
+
+%% Sequence Operators
+%% ------------------
+
+<1,3,5,7> filter (3..6)
+{(1, 3), (2, 5)}                  CORRECT
+
+squash {(2,1),(5,2)}
+{(1, 1), (2, 2)}                  CORRECT
+
+squash {(2,1),(2,9),(5,2)}
+{(1, 1), (2, 9), (3, 2)}          WRONG
+
+% Using syntax zed
+\dcat \langle \rangle
+\empty                            CORRECT
+
+\dcat \langle \langle 1,3 \rangle, \langle 2,4 \rangle \rangle
+\{(1, 1), (2, 3), (3, 2), (4, 4)\} CORRECT
+
+
+%% Function type checking
+%% ----------------------
+
+{(1,11),(2,12)} in ((1..2) --> nat)
+true                              CORRECT
+
+{(1,11),(2,12)} in ((1..3) --> nat)
+false                             CORRECT
+
+{(1,11),(2,11)} in ((1..2) >--> nat)
+false                             CORRECT
+
+schema F is
+dec
+   f : (1..3) --> nat
+end F
+
+schema Init is
+dec
+   F
+pred
+   f = {(1,0),(2,0),(3,0)}
+end Init
+
+schema Op is
+dec
+   Delta F;
+   v? : nat
+pred
+   f' = f func_override {(3,v?)}
+end Op
+
+
+Init'
+[f' := {(1, 0), (2, 0), (3, 0)}]
+
+TODO: what is the correct way of calling Op with parameter v? ???
+5 sum: Op[v? := 3]           ???
+no solution                 
+
+5 sum: Op{3/v?}              GOES OFF INTO INFINITY...

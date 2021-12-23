@@ -1,0 +1,81 @@
+\documentclass[10pt]{article}
+\usepackage{z-eves}
+
+\begin{document}
+
+Here is a very simple example Z specification, for a stack.
+
+\begin{zed}
+    [Elem]
+\end{zed}
+
+The state schema contains a sequence of elements
+and its size.
+
+\begin{schema}{Stack}
+    elems : \seq Elem \\
+    size  : \nat
+\where
+    \# elems = size
+\end{schema}
+
+The initialisation schema sets the stack to empty,
+which implicitly sets size to 0 (because of the state invariant).
+
+\begin{schema}{StackInit}
+        Stack	
+\where
+        elems = \emptyset
+\end{schema}
+
+The push operation is straightforward.
+We can deduce that $size' = size + 1$, because the invariant
+is included twice ($Stack$ and $Stack'$).
+
+\begin{schema}{StackPush}
+    \Delta Stack \\
+    new? : Elem \\
+\where
+    elems' = elems \cat \langle new? \rangle
+\end{schema}
+
+The pop operation is specified indirectly, by a predicate which
+relates the initial and final states.  If we calculate the
+precondition, we find that requires $elems \neq \langle \rangle$.
+
+\begin{schema}{StackPop1}
+    \Delta Stack \\
+    out! : Elem \\
+\where
+    elems = elems' \cat \langle out! \rangle 
+\end{schema}
+
+To demonstrate the schema calculus, we define an error case
+for this pop operation, which returns a special element that
+indicates an error.  Then we can use the schema calculus to define
+a robust pop operation which has precondition true.
+
+%\begin{axdef}
+%    err : Elem
+%\end{axdef}
+
+Jaza does not support axiomatic definitions, so we use a definition
+to name a member of Elem.  (There is no type checking on members of given
+sets in Jaza).
+\begin{zed}
+    err == "ErrElem"
+\end{zed}
+
+\begin{schema}{StackPopEmpty}
+    \Delta Stack \\
+    out! : Elem \\
+\where
+    elems = \langle \rangle  \\
+    out! = err
+\end{schema}
+
+\begin{zed}
+    StackPop \defs StackPop1 \lor StackPopEmpty
+\end{zed}
+
+\end{document}

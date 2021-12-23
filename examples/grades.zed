@@ -1,0 +1,349 @@
+\documentclass{article}
+\usepackage{z-eves}
+
+\title{Z Specification of a Student Grade System}
+\author{Mark Utting}
+\begin{document}
+\parindent 0pt
+\parskip 1.2ex plus 4pt
+
+\maketitle
+
+This document specifies a simple system for recording student grades.
+Grades range from A to E, and are associated with the student identity
+numbers of the students.  To save typing, we assume that the system
+is for a small university, where four digit student numbers are used.
+
+\begin{zed}
+ID == 1000 \upto 99999 \\
+Bool  ::= True | False
+\end{zed}
+
+
+
+\section{The IDSet system}
+
+First we define a subsystem for recording sets of student IDs.
+It provides the following operations:
+\begin{description}
+\item[$IDSetInit():$] 
+        Initialises so that the set of students is empty.
+\item[$IDAdd(i?:ID,mem!:Bool)$:] 
+        Adds student $i?$ to the set.
+\item[$IDDel(i?:ID,mem!:Bool)$:] 
+        Deletes student $i?$ from the set.
+\item[$IDMember(i?:ID,mem!:Bool)$:] 
+        This is a query operation, so does not 
+        modify the set of students.
+\item[$IDSize(size!:\nat)$:] Returns the number of students in the set.
+\end{description}
+
+Note that the $IDAdd$ and $IDDel$ operations return $mem!$ to
+indicate whether student $i?$ was in the set \emph{before} the
+operation was carried out.  This is useful if the
+caller wants to detect duplicate adds or spurious deletes.
+
+Now we define the state of the system and the various operations.
+
+\begin{schema}{IDSet}
+  s: \finset ID \\
+  size: \nat
+\where
+  size = \# s
+\end{schema}
+
+The state invariant introduces a Z/EVES proof obligation
+to show that the $\#$ function is called within its precondition
+(because cardinality is only defined on finite sets).  This
+proof obligation is easily discharged as follows:
+\begin{zproof}
+prove by reduce;
+\end{zproof}
+
+\begin{schema}{IDSetInit}
+  IDSet
+\where
+  s = \emptyset
+\end{schema}
+
+Although $IDSetInit$ did not explicitly set $size$, the
+state invariant forces it to be zero.  The following theorem checks this:
+\begin{theorem}{zerosize\_after\_init}
+  \forall IDSetInit @ size = 0
+\end{theorem}
+\begin{zproof}
+prove by reduce;
+\end{zproof}
+
+
+\begin{schema}{IDSize}
+  \Xi IDSet \\
+  size! : \nat
+\where
+  size! = size
+\end{schema}
+
+
+The remaining operations on $IDSet$s all return a boolean
+flag to indicate whether the given id was already in
+the set, so the next $IDSetOp$ schema captures
+this common behaviour.  Note that we treat $IDSetOp$ as an
+\emph{auxiliary} schema which is private to this specification,
+rather than as a public operation of the $IDSet$ system.
+There is no special Z notation to indicate this, but we
+make it clear in the documentation---it is excluded from the list
+of public operations at the beginning of this section.
+
+\begin{schema}{IDSetOp}
+  \Delta IDSet \\
+  i?: ID \\
+  mem! : Bool
+\where
+  mem! = True \iff i? \in s
+\end{schema}
+
+Having defined $IDSetOp$, it is easy to define 
+the remaining operations.
+\begin{zed}
+ IDAdd    \defs [IDSetOp |  s' = s \cup \{i?\} ] \\ 
+ IDDel    \defs [IDSetOp |  s' = s \setminus \{i?\} ] \\
+ IDMember \defs IDSetOp \land \Xi IDSet
+\end{zed}
+
+
+\subsection{An Example Animation using Z/EVES}
+
+try IDSetInit'; prove by reduce;
+
+\begin{zed}
+  S0 \defs [IDSet' | s' = \{\} \land size' = 0] \\
+  OP1 \defs S0 \semi IDAdd[i? := 1001]
+\end{zed}
+
+try OP1; prove by reduce;
+
+\begin{zed}
+  S1 \defs [IDSet' | s' = \{1001\} \land size' = 1] \\
+  OP2 \defs S1 \semi IDAdd[i? := 1005]
+\end{zed}
+
+try OP2; prove by reduce;
+
+\emph{You carry on here...}
+
+
+\subsection{Testing the IDSet operations using Z/EVES}
+
+To show that we can still validate schemas via testing, even
+when they are not executable, let us define an extra $IDSet$
+operation that is non-deterministic.  It outputs any one of
+the students in the given $IDSet$.
+
+\begin{schema}{Someone}
+  \Xi IDSet \\
+  who! : ID
+\where
+  who! \in s
+\end{schema}
+
+The following example data satisfies the $IDAdd$ operation.
+\begin{zed}
+  pos1  \defs IDAdd[s     := \{1000\},
+                    size  := 1,
+                    i?    := 1998, 
+                    \\ \t4 % '\\' starts a new line, so we don't get TOO wide
+                    s'    := \{1000,1998\},
+                    size' := 2,
+                    mem!  := False] 
+\end{zed}
+
+But this example data does not satisfy it:
+\begin{zed}
+  neg1  \defs IDAdd[s     := \{\},
+                    size  := 0,
+                    i?    := 1998,
+                    \\ \t4   % the \t4 indents the new line by 4 steps
+                    s'    := \{\},
+                    size' := 0,
+                    mem!  := False]
+\end{zed}
+
+(When evaluated with Z/EVES, $pos1$ evaluates to $true$,
+but $neg1$ evaluates to $false$, as expected.)
+
+\emph{You carry on here, giving several examples for each of
+the $IDSet$ schemas, and the $Someone$ schema...}
+
+
+\section{A system for recording student grades}
+
+Now we specify a system that records student grades.
+The grades range from A to E (no pluses or minuses are recorded).
+
+\begin{zed}
+  Grade ::= A | B | C | D | E
+\end{zed}
+
+For each grade, the following state schema uses the $IDSet$ system
+to record which students have achieved that grade.  The invariant
+states that no student should have more than one grade.
+
+\begin{schema}{GradeSys}
+  stu : Grade \fun IDSet
+\where
+  (\forall a,b:Grade @ a \neq b \implies \\
+  \t1  (stu~a).s \cap (stu~b).s = \emptyset)
+\end{schema}
+
+Initially, there are no students in any of the grades.
+
+\begin{schema}{GradeSysInit}
+  GradeSys
+\where
+%  \forall g:Grade @ (stu~g).s = \emptyset
+%  stu = (\lambda g:Grade @ (\mu i:IDSetInit))
+  stu = Grade \cross \{IDSetInit @ \theta IDSet\}
+\end{schema}
+
+
+  Next we use a standard Z technique called \emph{promotion}
+  to make it easier to lift the $IDSet$ operations up to
+  the $GradeSys$ level.  This $PromoteIDSet$ schema chooses
+  a grade, and equates the students at that grade with the
+  students in an $IDSet$ system (which will later be hidden).
+
+\begin{schema}{PromoteIDSet}
+  \Delta IDSet \\
+  \Delta GradeSys \\
+  g? : Grade
+\where
+  stu ~ g? = \theta IDSet \\
+  stu' = stu \oplus \{g? \mapsto \theta IDSet'\}
+\end{schema}
+
+\begin{zed}
+  GradeAdd \defs (\exists \Delta IDSet @ PromoteIDSet \land IDAdd) \\
+  GradeDel \defs (\exists \Delta IDSet @ PromoteIDSet \land IDDel) \\
+  GradeSize \defs (\exists \Delta IDSet @ PromoteIDSet \land IDSize)
+\end{zed}
+
+Rather than promoting the $IDSet$ member operation, we provide
+a more powerful operation that, given a student id, returns the
+grade of that student.   
+\begin{schema}{GradeShow}
+  \Xi GradeSys \\
+  i? : ID \\
+  g! : Grade
+\where
+  i? \in (stu ~ g!).s
+\end{schema}
+
+Our last operation will only be used when drastic scaling of grades
+is required!  Given two grades, $g_1?$ and $g_2?$, it takes all
+students who currently have grade $g_1?$ and changes their grade
+to $g_2?$.  A series of these operations can be used to scale everyone
+up (or down!) by one or two grades.
+
+\begin{schema}{GradeMove}
+  \Delta GradeSys \\
+  g1?, g2? : Grade
+\where
+  g1? \neq g2? \\
+  (stu' ~ g1?).s = \emptyset \\
+  (stu' ~ g2?).s = (stu ~ g1?).s \cup (stu ~ g2?).s \\
+  \{g1?,g2?\} \ndres stu' = \{g1?,g2?\} \ndres stu
+\end{schema}
+
+
+\section{Error Handling in the Grade System}
+  
+In this section, we extend the $GradeSys$ operations
+to specify what behavior should happen when errors occur.
+By wrapping error handling schemas around the operations
+in the previous section, we define the operations of the
+final system.
+
+The final ``Student Grade System'' provides the following operations:
+\begin{description}
+\item[$SGSInit$:]  Initialises the grade system so that all
+  grades are empty.  
+\item[$SGSAdd(g?:Grade,i?:ID,m!:MSG)$:] 
+  Adds student $i?$ into grade $g?$.
+\item[$SGSDel(g?:Grade,i?:ID,m!:MSG)$:] 
+  Deletes student $i?$ from grade $g?$.
+\item[$SGSMove(g1?,g2?:Grade,m!:MSG)$:] 
+  Moves all $g1?$ students into grade $g2?$.
+\item[$SGSShow(i?:ID,m!:MSG)$:] 
+  Shows the grade of student $i?$.
+\item[$SGSSize(g?:Grade,m!:MSG)$:] 
+  Shows the number of students in grade $g?$.
+\end{description}
+
+
+First we define the possible output messages of these operations.
+In an actual implementation, these messages will be displayed as 
+formatted text strings (we leave the exact format up to the program
+designer).
+Alternatively, if the implementation has a graphical user interface, 
+then the messages may be displayed in a dialogue box or output area.
+The $OK$ response is a general `success' message, and contains no
+specific data, so implementations (especially text-based implementations) 
+are not required to display it.
+
+
+\begin{zed}
+  MSG  ::= OK \\
+  \t2   |  HasGrade \ldata ID \cross Grade \rdata \\
+  \t2   |  HasNoGrade \ldata ID \rdata  \\
+  \t2   |  GradeSizeIs \ldata Grade \cross \nat \rdata  \\
+  \t2   |  ErrorAlreadyHasGrade \ldata ID \rdata  \\
+  \t2   |  ErrorNotInGrade \ldata ID \cross Grade \rdata 
+\end{zed}
+
+Finally, we extend the $GradeSys$ operations.
+
+\begin{zed}
+  SGSInit  \defs  GradeSysInit 
+\end{zed}
+
+\begin{zed}
+  SGSAdd   \defs  [GradeAdd; m!:MSG | mem! = False \land m!=OK] \hide(mem!)\\
+           \t2   \lor [\Xi GradeSys; m!:MSG; i?:ID | \\
+           \t3          (\exists g:Grade @ i? \in (stu~g).s) \land \\
+           \t3          m! = ErrorAlreadyHasGrade(i?)] 
+\end{zed}
+
+\begin{zed}
+  SGSDel   \defs  [GradeDel; m!:MSG | mem! = True \land m!=OK] \hide(mem!) \\
+           \t2   \lor [\Xi GradeSys; m!:MSG; i?:ID; g?:Grade | \\
+           \t3          i? \notin (stu~g?).s \land \\
+           \t3          m! = ErrorNotInGrade(i?,g?)] 
+\end{zed}
+
+\begin{zed}
+  SGSMove  \defs  [GradeMove; m!:MSG | m! = OK]
+\end{zed}
+
+\begin{zed}
+  SGSShow  \defs  [GradeShow; m!:MSG | m! = HasGrade(i?,g!)] \hide(g!) \\
+           \t2   \lor [\Xi GradeSys;m!:MSG;i?:ID | \\
+           \t3          \lnot (\exists g:Grade @ i? \in (stu~g).s) \land \\
+           \t3          m! = HasNoGrade(i?)] 
+\end{zed}
+
+\begin{zed}
+  SGSSize  \defs  [GradeSize; m!:MSG | m! = GradeSizeIs(g?,size!)]\hide(size!)
+\end{zed}
+
+% % An alternative init:
+% \begin{schema}{GradeSysInit2}
+%   GradeSys
+% \where
+%   stu = (\lambda g:Grade @ (\mu IDSetInit))
+% \end{schema}
+
+% \begin{zed}
+%   s1 \defs [GradeSys | stu = \{A \mapsto \theta 
+% \end{zed}
+
+\end{document}

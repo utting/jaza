@@ -1,0 +1,113 @@
+\documentclass{article}
+\usepackage{oz}   % oz or z-eves or fuzz styles
+
+\author{Mark Utting}
+\title{Process Scheduler in Z}
+\date{\$Id: scheduler.zed,v 1.3 2002/06/15 06:00:15 marku Exp $ $}
+
+\begin{document}
+\maketitle
+
+This is the process scheduler example, taken from the
+paper `\emph{Automating the generation and sequencing of test cases
+  from model-based specifications}' by Jeremy Dick and Alain Faivre,
+FME 1993.
+
+It would be interesting to see if putting this through
+the Z to BZP translator produces an equivalent .bzp file 
+to the result of putting the B version through the B to BZP translator!
+
+\begin{zed}
+   PID ::= p1 | p2 | p3 | p4
+\end{zed}
+
+\begin{schema}{Scheduler}
+    active,ready,waiting:\finset PID \\
+\where
+    \# active \leq 1 \\ 
+    ready \cap waiting = \emptyset \\
+    active \cap waiting = \emptyset \\
+    active \cap ready = \emptyset \\
+    (active = \emptyset) \implies (ready = \emptyset)
+\end{schema}
+
+\begin{schema}{Init}
+    Scheduler
+\where
+    active = ready = waiting = \{\}
+\end{schema}
+
+\begin{schema}{New}
+    \Delta Scheduler \\
+    pp? : PID
+\where
+    pp? \notin active \cup ready \cup waiting \\
+    waiting' = waiting \cup \{pp?\} \\
+    ready' = ready \\
+    active' = active
+\end{schema}
+
+It would also be possible to write this $Ready$ operation
+using the Z if-then-else operators.
+
+\begin{schema}{Ready}
+    \Delta Scheduler\\
+    pp? : PID
+\where
+    pp? \in waiting \\
+    waiting' = waiting \setminus \{pp?\} \\
+    (active = \emptyset 
+	\implies active' = \{pp?\} \land ready'=ready) \\
+    (active \neq \emptyset 
+	\implies active' = active \land ready'=ready \cup \{pp?\})
+\end{schema}
+
+These next two auxiliary schemas are used to define the Swap operation.
+\begin{schema}{SomeReady}
+    \Delta Scheduler \\
+    pp! : PID
+\where
+    active \neq \{\} \\
+    pp! \in ready \\
+    active' = \{pp!\} \\
+    ready' = ready \setminus \{pp!\} \\
+\end{schema}
+
+\begin{schema}{NoneReady}
+  \Delta Scheduler
+\where
+  active \neq \{\} \\
+  ready = \{\} \\
+  active' = \{\} \\
+  ready' = ready \\
+\end{schema}
+
+\begin{zed}
+  Swap \defs (SomeReady \hide (pp!) \lor NoneReady) \\
+	\t2  \land [\Delta Scheduler | waiting' = waiting \cup active]
+\end{zed}
+
+\begin{schema}{Sched}
+  state : Scheduler \\
+  init  : Init \\
+  new   : New \\
+  ready : Ready \\
+  swap  : Swap
+\end{schema}
+
+Here are the preconditions of the operations.
+% \begin{zed}
+%   \vdash ? \pre New = [Scheduler; pp?:PID 
+% 			| pp? \not \in active \cup ready \cup waiting ]
+% \end{zed}
+% \begin{zed}
+%   \vdash ? \pre Ready = [Scheduler; pp?:PID
+% 			| pp? \in waiting]
+% \end{zed}
+% \begin{zed}
+%   \vdash ? \pre Swap = [Scheduler | active \neq \{\}]
+% \end{zed}
+
+\end{document}
+
+

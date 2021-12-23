@@ -1,0 +1,428 @@
+Correctness experiments for Z animators.
+All variables range over small finite domains.
+
+
+\begin{schema}{S}
+  x,y: 1 \upto 10
+\where
+  x < y \\
+\end{schema}
+
+
+SECTION: 'Find an instance of a schema'.
+        (How to ask for `some solution' varies between animators).
+S
+Jaza: do S
+Jaza: gives: \lblot x==1,y==2 \rblot
+
+ZANS: eval S
+ZANS: gives:  <undef>                   WRONG
+
+ZEVES: z \in S    
+	  (prove by reduce does nothing)
+       z \in \{ S \}  
+	  (prove by reduce gives: \exists S @ z = \theta S)
+
+ZAP:  Cannot find any way of doing this.
+
+
+evalp (\exists S @ y < 3)
+Jaza: True
+ZANS: Segmentation fault (core dumped)
+ZEVES: Cannot get this to expand S ???
+ZAP:  true
+
+eval \{S | y < 3\}
+Jaza:  \{ \lblot x==1,y==2 \rblot \}
+ZANS: Segmentation fault (core dumped)
+ZEVES: Cannot get this to expand S ???
+ZAP:  {<x==1,y==2>}
+
+eval \{x:S | x.y < 2\}
+Jaza: Error:  
+% eval \{x:S | x.y < 2\}
+% \{x:\{x_1:\bigcap \{1 \upto 10\};
+%       y:\bigcap
+% 	\{1 \upto 10,
+% 	  (ZGenerator ZGreaterThan (ZVar ("x",["_1"])))\} 
+%       @ \lblot x==x_1, y==y \rblot\};
+%  (x~y).y < 2 @ x\}
+
+ZANS: eval gives: { x : S | x.y < 2 }
+      eval -e (eager) gives: 
+	Exception: ZMT class error @ Rel(). 
+		Run-time typing error.
+	{}
+ZEVES: Cannot get this to expand S ???
+ZAP:   Crashes ZETA.
+
+
+SECTION: \mu expressions
+	---------------
+eval (\mu x : 1 \upto 100 | x*x \in 81 \upto 90)
+Jaza: 9
+ZANS: 9
+ZEVES: prove by reduce had no effect, even when equated with correct answer.
+	NOTE: to ask Z/EVES to evaluate an expression E, we do
+	       try E = z;   prove by reduce;
+ZAP:  9  (after moving 1..100 into predicate part)
+
+eval (\mu x : 1 \upto 100 | x*x \in 82 \upto 90)
+Jaza: Undefined
+ZANS: <undef>
+ZEVES: prove by reduce had no effect, even when equated with correct answer.
+ZAP:  Error message: "undefined in toplevel goal"      CORRECT
+
+eval (\mu x : 1 \upto 100 | x*x \in 81 \upto 100)
+Jaza: Undefined
+ZANS: <undef>
+ZEVES: prove by reduce had no effect, even when equated with correct answer.
+ZAP:  Error message: "undefined in toplevel goal"      CORRECT
+
+SECTION: Lambda functions
+	----------------
+eval (\lambda x: 1 \upto 100 @ x*x) ~ 9
+Jaza: 81
+ZANS: 81
+ZEVES: prove by reduce had no effect, even when equated with correct answer.
+ZAP:  81
+
+eval (\lambda x: 1 \upto 100 @ x*x) ~ 0
+Jaza: Undefined                     CORRECT
+ZANS: 0                             WRONG
+ZEVES: prove by reduce had no effect, even when equated with correct answer.
+ZAP:  Error message: "undefined in toplevel goal"      CORRECT
+
+eval (\lambda s:S; x:1 \upto 100 @ s.x + x)  ((\mu S | y=2), 30)
+Jaza:  Error: unknown variable: y
+       (because of above error).
+ZANS:  Segmentation fault (core dumped)
+	(\mu S | y=2)   does the same.
+       Expanding out S by hand:
+	eval  ((\mu x,y:1 \upto 10 | x<y \land y=2), 30)
+		gives: ((1, 2), 30)               CORRECT
+	eval  ((\mu x,y:1 \upto 10 | x<y \land y=2 @ \theta S), 30)
+	  	gives: Exception: ZMT class error @ TupleAppend(). 
+				Run-time typing error.
+			(30)
+ZEVES: prove by reduce had no effect
+ZAP:  \mu S would crash it, so I did:
+      (\lambda s:S; z:\num @ s.x + z)  (\lblot x==1,y==2 \rblot, 30)
+      gives:  31                                CORRECT
+      (But this gives an error if we rename the z to x).
+
+SECTION: \theta expressions
+	------------------
+eval \{ S | y < 3 @ \theta S \}
+Jaza:  \{  \lblot x==1,y==2 \rblot \}
+ZANS:  Segmentation fault (core dumped)
+       Expanding out S by hand:
+	  eval -e \{ x,y:1 \upto 10 | x<y \land y < 3\}
+	  gives:  {(1, 2)}               CORRECT
+	  eval -e \{ x,y:1 \upto 10 | x<y \land y < 3 @ \theta S \}
+          gives: {}                      WRONG
+ZEVES: prove by reduce has no effect
+ZEVES: z \in ... gives:
+ (\exists x: 1 \upto 10
+        @ (\exists y: 1 \upto 10
+             @       z = \theta S \\
+               \land x < y \\
+               \land y < 3))
+  Then 
+	instantiate x == 1; 
+	instantiate y == 2; 
+  gives
+        z = \theta S[x := 1, y := 2]  \lor ...
+ZAP:                                    CORRECT
+
+
+eval \{ S;S' | y = 2 \land x' = 9 @ \theta S' \}
+Jaza:  \{  \lblot x==9,y==10 \rblot \}
+ZANS: eval -e \{ x,y,x',y':1 \upto 10 | x<y \land x'<y' \land y=2 \land x'=9 \}
+      gives: (after about one minute pause)
+	Exception: ZMT class error @ Cartesian::Step(). 
+	Execeed maximun numbers of iterations allowed.
+	{(1, 2, 9, 10)}
+    eval -e \{ x,y,x',y':1 \upto 6 | x<y \land x'<y' \land y=2 \land x'=5 \}
+	gives: {(1, 2, 5, 6)}		CORRECT
+    eval -e \{ x,y,x',y':1 \upto 6 | x<y \land x'<y' \land y=2 \land x'=5 @ \theta S \}
+	gives: {}			WRONG
+ZEVES: try z \in ...
+	prove by reduce;
+	instantiate x == 1; 
+	instantiate y' == 10; 
+	prove by reduce;
+   gives:	
+      z = \theta S[x := 9, y := 10] \\
+      \lor (\exists S[x := 9, y'/y] @ z = \theta S[x := 9, y'/y])
+ZAP:  _Z_Expression_~1 undeclared S'' 
+
+
+SECTION: Set and Logical Operators
+	-------------------------
+eval \power_1 (1 \upto 2)
+Jaza: \{\{1\}, \{1, 2\}, \{2\}\}        CORRECT
+ZANS: P1 (1 .. 2)
+      eval -e gives: {{1}, {2}, {1, 2}} CORRECT
+ZEVES: prove by reduce had no effect, even when equated with correct answer.
+ZAP:  Error: 
+
+eval \power_1 (1 \upto 0)
+Jaza: \{\}                              CORRECT
+ZANS: {}                                CORRECT
+ZEVES: \{\}                             CORRECT
+ZAP:  Error:
+
+evalp (\exists_1 x:1 \upto 10 @ x = 3)
+Jaza: True                              CORRECT
+ZANS: True                              CORRECT
+ZEVES: true                             CORRECT
+ZAP:  true                              CORRECT
+
+evalp (\exists_1 x:1 \upto 10 @ x < 3)
+Jaza: False                             CORRECT
+ZANS: True                              WRONG
+ZEVES: prove by reduce gives:
+    \exists x: 1 \upto 10
+      @       x < 3 \\
+       \land (\forall y: 1 \upto 10 | y < 3 @ x = y)
+ZAP:  false                             CORRECT
+
+evalp \langle 1 \upto 4, 7 \upto 10, 5 \upto 6 \rangle \partition (1 \upto 10)
+Jaza: Type Error: finite set required, not: ZSeqDisplay [ZIntSet (Just 1) (Just 4),ZIntSet (Just 7) (Just 10),ZIntSet (Just 5) (Just 6)]
+ZANS:  True                              CORRECT
+ZEVES: prove by reduce gives:
+      (\disjoint \langle 1 \upto 4 \rangle
+                 \cat (\langle 7 \upto 10 \rangle
+                       \cat \langle 5 \upto 6 \rangle)) \\
+    \land (1 \upto 4) \cup ((5 \upto 6) \cup (7 \upto 10)) = 1 \upto 10
+ZAP:  true                               CORRECT
+
+evalp \langle 1 \upto 4, 8 \upto 10, 5 \upto 6 \rangle \partition (1 \upto 10)
+Jaza: Type Error: finite set required, ...
+ZANS: False                              CORRECT
+ZEVES: same as previous test.
+ZAP:  false                              CORRECT
+
+evalp \disjoint \langle 1 \upto 4, 7 \upto 9, 5 \upto 6 \rangle
+Jaza: Type Error: finite set required, not: ZSeqDisplay [ZIntSet (Just 1) (Just 4),ZIntSet (Just 7) (Just 10),ZIntSet (Just 5) (Just 6)]
+ZANS: True                               CORRECT
+ZEVES: prove by reduce had no effect
+ZAP:  true                               CORRECT
+
+evalp \disjoint \langle 1 \upto 4, 7 \upto 9, 5 \upto 7 \rangle
+Jaza: Type Error: finite set required, not: ZSeqDisplay [ZIntSet (Just 1) (Just 4),ZIntSet (Just 7) (Just 9),ZIntSet (Just 5) (Just 7)]
+ZANS: False                              CORRECT
+ZEVES: prove by reduce had no effect
+ZAP:  false                              CORRECT
+
+
+SECTION: Sequence Operators
+	------------------
+
+eval \langle 1,3,5,7 \rangle \filter (3 \upto 6)
+Jaza: \langle 3, 5 \rangle              CORRECT
+ZANS: <3,5>                             CORRECT
+ZEVES: \langle 3 \rangle \cat \langle 5 \rangle = z    CORRECT
+ZAP:  <3,5>                             CORRECT
+
+eval squash \{ (2,1), (5,2) \}
+Jaza: \langle 1, 2 \rangle              CORRECT
+ZANS: <>                                WRONG
+ZEVES: prove by reduce had no effect, even when equated with answer.
+ZANS: <1,2>                             CORRECT
+
+eval squash \{ (2,1), (2,9), (5,2) \}
+Jaza: Undefined result                  CORRECT
+ZANS: <>                                WRONG
+ZEVES: prove by reduce had no effect.
+ZANS: <1,9,2>                           WRONG
+
+eval \dcat \langle \rangle
+Jaza: \langle \rangle                   CORRECT
+ZANS: <>                                CORRECT
+ZEVES: typechecker complains about this being too generic 
+ZAP:   typechecker complains about this being too generic 
+
+eval \dcat \langle \langle 1,3 \rangle, \langle 2,4 \rangle \rangle
+Jaza: \langle 1, 3, 2, 4 \rangle        CORRECT
+ZANS: <1, 3, 2, 4>                      CORRECT
+ZEVES: \langle 1 \rangle \cat (\langle 3 \rangle 
+       \cat (\langle 2 \rangle \cat \langle 4 \rangle)) = z   CORRECT
+ZAP:  <1, 3, 2, 4>                      CORRECT
+
+SECTION: Infinite sets combined with finite sets
+	---------------------------------------
+
+eval \nat \cap \{2,0,-2\}
+Jaza: \{0, 2\}                          CORRECT
+ZANS: Exception: ZMT class error @ ZSetOp::Intersection(). 
+	Operation not allowed in this implementation.
+	<undef>
+ZEVES: \{0\} \cup \{2\} = z             CORRECT
+Possum: \{0, 2\}                        CORRECT
+ZAP:   {0,2}                            CORRECT
+
+eval \{2,0,-2\} \cap \nat
+Jaza: \{0, 2\}                          CORRECT
+ZANS: {2, 0}                            CORRECT
+ZEVES: \{0\} \cup \{2\} = z             CORRECT
+Possum: \{0, 2\}                        CORRECT
+ZAP:   {0,2}                            CORRECT
+
+evalp \{0,3\} \in \power \nat
+Jaza: True                              CORRECT
+ZANS: True                              CORRECT
+ZEVES: true                             CORRECT
+Possum: true                            CORRECT
+ZAP:    true                            CORRECT
+
+evalp \{0, -3\} \in \power \nat
+Jaza: False                             CORRECT
+ZANS: False                             CORRECT
+ZEVES: false                            CORRECT
+Possum: false                           CORRECT
+ZAP:    false                           CORRECT
+
+evalp 101 \in (\nat \setminus (-100 \upto 100))
+Jaza:  Type Error: finite set required, not: ZIntSet (Just 0) Nothing
+ZANS:  Exception: ZMT class error @ ZSetOp::Difference(). 
+	Operation not allowed in this implementation.
+       Exception: ZMT class error @ Rel(). 
+	Run-time typing error.
+       Undef
+ZEVES: true                             CORRECT
+Possum: true                            CORRECT
+ZAP:    true                            CORRECT
+
+evalp 100 \in (\nat \setminus (-100 \upto 100))
+Jaza:  Type Error: finite set required, not: ZIntSet (Just 0) Nothing
+ZANS:  Exception: ZMT class error @ ZSetOp::Difference(). 
+	Operation not allowed in this implementation.
+       Exception: ZMT class error @ Rel(). 
+	Run-time typing error.
+       Undef
+ZEVES: false                            CORRECT
+Possum: false                           CORRECT
+ZAP:    false                           CORRECT
+
+evalp -100 \in ((-100 \upto 100) \setminus \nat)
+Jaza:  Type Error: finite set required, not: ZIntSet (Just 0) Nothing
+ZANS:  True                             CORRECT
+ZEVES: true                             CORRECT
+Possum: true                            CORRECT
+ZAP:    true                            CORRECT
+
+evalp 100 \in ((-100 \upto 100) \setminus \nat)
+Jaza:  Type Error: finite set required, not: ZIntSet (Just 0) Nothing
+ZANS:  False                            CORRECT
+ZEVES: false                            CORRECT
+Possum: false                           CORRECT
+ZAP:    false                           CORRECT
+
+
+SECTION: Function type checking
+	----------------------
+
+evalp \{(1,11),(2,12)\} \in ((1 \upto 2) \fun \nat)
+Jaza: True                              CORRECT
+ZANS: Exception: ZMT class error @ Rel(). 
+	Run-time typing error.
+      Undef
+ZEVES: prove by reduce had no effect.
+ZAP:  true                              CORRECT
+
+evalp \{(1,11),(2,12)\} \in ((1 \upto 3) \fun \nat)
+Jaza: False                             CORRECT
+ZANS: Exception: ZMT class error @ Rel(). 
+	Run-time typing error.
+	Undef
+ZEVES: prove by reduce had no effect.
+ZAP:  false                             CORRECT
+
+evalp \{(1,11),(2,11)\} \in ((1 \upto 2) \bij \nat)
+Jaza: False                             CORRECT
+ZANS: Exception: ZMT class error @ Rel(). 
+	Run-time typing error.
+	Undef
+ZEVES: prove by reduce had no effect.
+ZAP:  false                             CORRECT
+      But \{(1,11),(2,12)\} \in ((1 \upto 2) \bij \nat)
+	gives an error.
+
+\begin{spec}
+% These next three lines are for ZANS:
+%% state-schema F
+%% init-schema Init
+%% operation Op
+\begin{schema}{F}
+   f : (1 \upto 3) \fun \nat
+\end{schema}
+
+\begin{schema}{Init}
+   F
+\where
+   f = \{ (1,0),(2,0),(3,0) \}
+\end{schema}
+
+\begin{schema}{Op}
+   \Delta F \\
+   v? : \nat
+\where
+   f' = f \cup \{ (3,v?) \}
+\end{schema}
+\end{spec}
+
+ZANS
+====
+Note:had to change above to use F' within Init.
+
+anim> execute Op
+... Execute schema: Op
+Enter input arguments: 
+v?	-> 2
+### Try branch #1
+    *** Entry guards: 
+	f in (1 .. 3) --> N
+Exception: ZMT class error @ Rel(). 
+	Run-time typing error.
+	--> Undef
+	v? >= 0
+	--> True
+    *** Statements:
+	f' := f || { (3, v?) }; 
+    *** Exit guards: 
+	f' in (1 .. 3) --> N
+Exception: ZMT class error @ Rel(). 
+	Run-time typing error.
+	--> Undef
+### Branch #1 succeed.
+Schema: Op
+f: 	{(1, 0), (2, 0), (3, 0)}
+f': 	{(1, 0), (2, 0), (3, 0), (3, 2)}
+v?: 	2
+
+			WRONG (because did not check function type,
+			       as the exception suggests).
+
+
+ZEVES
+=====
+  try Init'; prove by reduce;
+gives:
+     f' = \{(1, 0)\} \cup (\{(2, 0)\} \cup \{(3, 0)\}) \\
+\land \{(1, 0)\} \cup (\{(2, 0)\} \cup \{(3, 0)\}) \in 1 \upto 3 \fun \nat
+
+\begin{zed}
+     InitThenOp \defs Init' \semi Op
+\end{zed}
+  try InitThenOp;
+  prove by reduce;
+gives:
+      v? \in \num \\
+  \land f' = \{(1, 0)\} \cup (\{(2, 0)\} \cup (\{(3, 0)\} \cup \{(3, v?)\})) \\
+  \land \{(1, 0)\} \cup (\{(2, 0)\} \cup (\{(3, 0)\} \cup \{(3, v?)\}))
+        \in 1 \upto 3 \fun \nat \\
+  \land \{(1, 0)\} \cup (\{(2, 0)\} \cup \{(3, 0)\}) \in 1 \upto 3 \fun \nat \\
+  \land v? \geq 0
+

@@ -1,0 +1,81 @@
+Draft Design of Z -> CLPS-BZ Translator
+=======================================
+
+Strategy: do this by adding commands to Jaza.
+
+To translate a Z specification into CLPS-BZ, load/enter the
+Z specification into Jaza, and define a state machine
+using the command:
+
+   \begin{machine}{name}
+     nameOfStateSchema
+   \machineInit
+     nameOfInitSchema
+   \machineOps
+     nameOfOp1;
+     nameOfOp2
+   \end{machine}
+
+Note 1: This is useful for animation too.
+
+Note 2: It implies some type checking:
+
+           All the above names must be undecorated schema names.
+           sig state == sig (init \ inputs+outputs?)
+	   sig op_i \ inputs+outputs  c_  sig [state,state']
+
+
+Finally, write a machine into a *.pl file in CLPS-BZ syntax
+using the command:
+
+   writeclps machinename filename
+
+To make this more convenient, add a --batch flag to Jaza,
+and make it load files from the command line, etc.
+
+
+Writing Algorithm
+-----------------
+    Free types   -> sets(Mach,[(var(Name),Value)]).  (or unfold?)
+    Defns        -> constants(Mach,[var(Name)])
+                  + properties(Mach,PredList).       (or unfold?).
+    State fields -> variables(Mach,[var(FieldName)]).
+    State invar  -> invariant(Mach,PredList).
+    Init         -> initialisation(Mach,Subs).
+    Operations   -> function(Mach,Opname,Outputs,Inputs,Pre,Subs).
+	   where 
+	   Outputs,Inputs :: [var(Name)]
+	   PredList == [(Num,Pred)]
+	   	   
+Issues:
+	0. Put machine name into lowercase.
+
+	1. Should this prefix all vars with machine name?   YES.
+
+	2. Which global defns do we translate?
+		All?
+		Just those used (transitively) by the machine?
+		Unfold them all?              YES, AT FIRST.
+
+	3. How do we put the Z state invariant into each postcondition?
+	   We can omit it from preconditions, because all operations
+	   preserve it.
+
+	4. When outputting free types, we would like to enumerate them.
+	   (Assumes very finite types).
+	   => this requires access to Eval.hs.
+
+	5. We want to simplify pre as much as possible before writing.
+	   => call optimize etc?
+
+	6. Naive translation of post/\inv to subs:
+	     ["ANY WHERE", vars(state'), 
+	         post/\inv, 
+	         [":=", vars(state), vars(state')]]
+
+
+Jaza Issues
+===========
+1. Should machine names be in a separate namespace?   (YES, at first)
+   Or should machines be expressions (and have a semantics)?
+
